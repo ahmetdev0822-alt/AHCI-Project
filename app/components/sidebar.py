@@ -7,13 +7,13 @@ active state, hover effects, and demo role switcher.
 import customtkinter as ctk
 from app.config import (
     Colors, Fonts, Spacing, SIDEBAR_WIDTH, NAV_ITEMS,
-    ROLE_ADMIN, ROLE_TEACHER, ROLE_STUDENT, APP_NAME, SCHOOL_NAME,
+    ROLE_ADMIN, ROLE_TEACHER, APP_NAME, SCHOOL_NAME,
 )
 
 
 class Sidebar(ctk.CTkFrame):
     """
-    Left sidebar.  Calls `navigate_fn(screen_key)` when a nav item is clicked.
+    Left sidebar.  Calls `Maps_fn(screen_key)` when a nav item is clicked.
     """
 
     def __init__(self, parent, state, navigate_fn, logout_fn, **kwargs):
@@ -69,8 +69,8 @@ class Sidebar(ctk.CTkFrame):
         role_bar.pack(fill="x")
         role_bar.pack_propagate(False)
 
-        role_icons  = {ROLE_ADMIN: "🛡", ROLE_TEACHER: "📚", ROLE_STUDENT: "🎒"}
-        role_colors = {ROLE_ADMIN: "#64B5F6", ROLE_TEACHER: "#80CBC4", ROLE_STUDENT: "#FFE082"}
+        role_icons  = {ROLE_ADMIN: "🛡", ROLE_TEACHER: "📚"}
+        role_colors = {ROLE_ADMIN: "#64B5F6", ROLE_TEACHER: "#80CBC4"}
         ri = role_icons.get(self._state.current_role, "●")
         rc = role_colors.get(self._state.current_role, "#64B5F6")
         ctk.CTkLabel(
@@ -165,20 +165,19 @@ class Sidebar(ctk.CTkFrame):
         for role, short, color in [
             (ROLE_ADMIN,   "Admin",   "#64B5F6"),
             (ROLE_TEACHER, "Teacher", "#80CBC4"),
-            (ROLE_STUDENT, "Student", "#FFE082"),
         ]:
             is_active = role == self._state.current_role
             ctk.CTkButton(
                 btn_row,
                 text=short,
-                width=64, height=24,
+                width=96, height=24,
                 corner_radius=12,
                 font=(Fonts.FAMILY, Fonts.SIZE_XS, Fonts.WEIGHT_BOLD),
                 fg_color=Colors.PRIMARY if is_active else "#243D5E",
                 text_color=Colors.TEXT_WHITE if is_active else color,
                 hover_color=Colors.PRIMARY_DARK,
                 command=lambda r=role: self._switch_role(r),
-            ).pack(side="left", padx=3)
+            ).pack(side="left", padx=5)
 
     def _add_nav_button(self, key: str, label: str, icon: str):
         is_active = self._state.active_screen == key

@@ -3,14 +3,13 @@ app/screens/attendance.py
 Attendance Screen – Blue & White theme + strict RBAC:
   - Admin:   VIEW ONLY  – buttons disabled, save hidden, banner shown
   - Teacher: EDIT – mark attendance for their own class only
-  - Student: VIEW ONLY – see own attendance only
 """
 
 import customtkinter as ctk
 from datetime import date
 from app.config import (
     Colors, Fonts, Spacing, CARD_CORNER,
-    ROLE_ADMIN, ROLE_TEACHER, ROLE_STUDENT,
+    ROLE_ADMIN, ROLE_TEACHER,
 )
 from app.components.cards import SectionHeader, StatusBadge, MetricCard
 
@@ -46,8 +45,6 @@ class AttendanceScreen(ctk.CTkFrame):
         if role == ROLE_TEACHER:
             my_classes = self._state.get_classes_for_role()
             self._selected_class = my_classes[0] if my_classes else "Class 8-A"
-        elif role == ROLE_STUDENT:
-            self._selected_class = self._state.current_user.get("class", "Class 8-A")
         else:  # Admin
             all_classes = sorted({s["class"] for s in self._state.students})
             self._selected_class = all_classes[0] if all_classes else "Class 8-A"
@@ -61,18 +58,12 @@ class AttendanceScreen(ctk.CTkFrame):
         pad  = Spacing.XL
         role = self._state.current_role
 
-        # ── Read-Only Banner (Admin & Student) ────────────────────────────────
-        if not self._editable:
-            if role == ROLE_ADMIN:
-                banner_text = "🔒  Administrator View  –  You can view and print attendance, but cannot mark or edit it."
-                banner_color = Colors.INFO_BG
-                border_color = Colors.INFO
-                text_color   = Colors.INFO
-            else:  # Student
-                banner_text = f"👁  Viewing your own attendance record for {self._state.current_user.get('class', '')}  –  Read Only."
-                banner_color = Colors.PRIMARY_LIGHT
-                border_color = Colors.PRIMARY
-                text_color   = Colors.PRIMARY
+        # ── Read-Only Banner (Admin) ──────────────────────────────────────────
+        if not self._editable and role == ROLE_ADMIN:
+            banner_text = "🔒  Administrator View  –  You can view and print attendance, but cannot mark or edit it."
+            banner_color = Colors.INFO_BG
+            border_color = Colors.INFO
+            text_color   = Colors.INFO
 
             banner = ctk.CTkFrame(self, fg_color=banner_color, corner_radius=8,
                                    border_width=1, border_color=border_color)
@@ -120,8 +111,6 @@ class AttendanceScreen(ctk.CTkFrame):
 
         if role == ROLE_TEACHER:
             class_list = self._state.get_classes_for_role()
-        elif role == ROLE_STUDENT:
-            class_list = [self._selected_class]
         else:
             class_list = sorted({s["class"] for s in self._state.students})
 
@@ -134,8 +123,6 @@ class AttendanceScreen(ctk.CTkFrame):
             command=self._on_class_change,
         )
         class_menu.pack(side="left", padx=(8, 24))
-        if role == ROLE_STUDENT:
-            class_menu.configure(state="disabled")
 
         # Date
         ctk.CTkLabel(sel_inner, text="Date:",
@@ -173,7 +160,7 @@ class AttendanceScreen(ctk.CTkFrame):
                 command=self._save_attendance,
             ).pack(side="right")
         else:
-            # Admin / Student: Print button only
+            # Admin: Print button only
             ctk.CTkButton(
                 sel_inner, text="🖨  Print Report",
                 height=34, width=140, corner_radius=8,
@@ -240,12 +227,7 @@ class AttendanceScreen(ctk.CTkFrame):
         self._selected_class = self._class_var.get()
         self._selected_date  = self._date_var.get().strip()
 
-        role = self._state.current_role
-        if role == ROLE_STUDENT:
-            sid = self._state.current_user.get("student_id", "S001")
-            students = [s for s in self._state.students if s["id"] == sid]
-        else:
-            students = self._state.get_students_by_class(self._selected_class)
+        students = self._state.get_students_by_class(self._selected_class)
 
         for w in self._att_scroll.winfo_children():
             w.destroy()

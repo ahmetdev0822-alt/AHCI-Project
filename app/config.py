@@ -1,6 +1,6 @@
 """
 app/config.py
-EduTrack Design System – Blue & White Theme
+EduTrack Design System – Blue & White Theme (Admin & Teacher Focused)
 """
 
 # ─── Application Meta ────────────────────────────────────────────────────────
@@ -13,9 +13,8 @@ WINDOW_MIN_SIZE = (1200, 700)
 # ─── Roles ───────────────────────────────────────────────────────────────────
 ROLE_ADMIN   = "Administrator"
 ROLE_TEACHER = "Teacher"
-ROLE_STUDENT = "Student"
 
-ROLES = [ROLE_ADMIN, ROLE_TEACHER, ROLE_STUDENT]
+ROLES = [ROLE_ADMIN, ROLE_TEACHER]
 
 # ─── Color Palette ── Blue & White Theme ─────────────────────────────────────
 class Colors:
@@ -129,13 +128,6 @@ NAV_ITEMS = {
         {"key": "timetable",   "label": "Timetable",          "icon": "📅"},
         {"key": "reports",     "label": "Class Reports",      "icon": "📋"},
     ],
-    ROLE_STUDENT: [
-        {"key": "dashboard",   "label": "Dashboard",          "icon": "⊞"},
-        {"key": "attendance",  "label": "My Attendance",      "icon": "✓"},
-        {"key": "marks",       "label": "My Results",         "icon": "📊"},
-        {"key": "timetable",   "label": "My Timetable",       "icon": "📅"},
-        {"key": "reports",     "label": "My Report Card",     "icon": "📋"},
-    ],
 }
 
 # ─── Default Demo Credentials ─────────────────────────────────────────────────
@@ -155,13 +147,5 @@ DEMO_USERS = {
         "designation": "Class Teacher – Class 6-A",
         "student_id":  None,
         "class":       "Class 6-A",
-    },
-    ROLE_STUDENT: {
-        "username":    "student",
-        "password":    "student123",
-        "full_name":   "Ahmed Hassan Khan",
-        "designation": "Class 8-A  |  Roll No. 12",
-        "student_id":  "S001",
-        "class":       "Class 8-A",
     },
 }

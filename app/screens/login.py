@@ -92,7 +92,7 @@ class LoginScreen(ctk.CTkFrame):
         # Bottom tagline
         ctk.CTkLabel(
             left,
-            text="Powered by EduTrack v2.0  ·  © 2025 Dar-e-Arqam School",
+            text="Powered by EduTrack v2.0  ·  © 2026 Dar-e-Arqam School",
             font=(Fonts.FAMILY, Fonts.SIZE_XS),
             text_color="#64B5F6",
         ).place(relx=0.5, rely=0.96, anchor="center")
@@ -190,7 +190,7 @@ class LoginScreen(ctk.CTkFrame):
         ctk.CTkLabel(
             hint_box,
             text="💡  Demo Credentials\n"
-                 "Admin: admin / admin123   ·   Teacher: teacher / teacher123   ·   Student: student / student123",
+                 "Admin: admin / admin123   ·   Teacher: teacher / teacher123",
             font=(Fonts.FAMILY, Fonts.SIZE_XS),
             text_color=Colors.PRIMARY,
             wraplength=340,

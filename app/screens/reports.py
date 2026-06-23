@@ -1,11 +1,11 @@
 """
 app/screens/reports.py
-Reports generation screen – all roles (filtered by access).
+Reports generation screen – Admin and Teacher views (filtered by access).
 """
 
 import customtkinter as ctk
 from collections import defaultdict
-from app.config import Colors, Fonts, Spacing, CARD_CORNER, ROLE_STUDENT
+from app.config import Colors, Fonts, Spacing, CARD_CORNER
 from app.components.cards import SectionHeader, StatusBadge, MetricCard
 
 
@@ -47,17 +47,11 @@ class ReportsScreen(ctk.CTkFrame):
                      font=(Fonts.FAMILY, Fonts.SIZE_MD, Fonts.WEIGHT_BOLD),
                      text_color=Colors.TEXT_WHITE, anchor="w").pack(side="left", padx=12)
 
-        is_student = self._state.current_role == ROLE_STUDENT
-
         report_types = [
             ("📋", "Student Report Card",     "student_report",   Colors.PRIMARY),
             ("✓",  "Class Attendance Report", "att_report",       Colors.SUCCESS),
             ("⚠",  "Low Attendance Alerts",   "low_att_report",   Colors.DANGER),
             ("📊", "Performance Summary",     "perf_report",      Colors.INFO),
-        ] if not is_student else [
-            ("📋", "My Report Card",           "student_report",   Colors.PRIMARY),
-            ("✓",  "My Attendance Report",     "att_report",       Colors.SUCCESS),
-            ("📊", "My Performance",           "perf_report",      Colors.INFO),
         ]
 
         self._report_btns = {}
@@ -155,7 +149,7 @@ class ReportsScreen(ctk.CTkFrame):
                      font=(Fonts.FAMILY, Fonts.SIZE_XS),
                      text_color="#C8DFF0").pack(anchor="w")
         # School watermark
-        ctk.CTkLabel(hdr, text="Dar-e-Arqam School  ·  Session 2025–26",
+        ctk.CTkLabel(hdr, text="Dar-e-Arqam School  ·  Session 2026–27",
                      font=(Fonts.FAMILY, Fonts.SIZE_XS),
                      text_color="#A0C0D8").place(relx=0.98, rely=0.5, anchor="e")
         return hdr
@@ -173,13 +167,9 @@ class ReportsScreen(ctk.CTkFrame):
                      font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
                      text_color=Colors.TEXT_SECONDARY).pack(side="left", padx=(0, 6))
 
-        is_student = self._state.current_role == ROLE_STUDENT
-        if is_student:
-            student_options = ["Ahmed Hassan Khan (S001)"]
-        else:
-            student_options = [f"{s['name']} ({s['id']})" for s in self._state.students[:20]]
+        student_options = [f"{s['name']} ({s['id']})" for s in self._state.students[:20]]
 
-        self._rep_student_var = ctk.StringVar(value=student_options[0])
+        self._rep_student_var = ctk.StringVar(value=student_options[0] if student_options else "")
         ctk.CTkOptionMenu(
             sel_row, values=student_options, variable=self._rep_student_var,
             width=260, height=32, font=(Fonts.FAMILY, Fonts.SIZE_SM),
@@ -202,6 +192,8 @@ class ReportsScreen(ctk.CTkFrame):
             w.destroy()
 
         sel = self._rep_student_var.get()
+        if not sel:
+            return
         sid = sel.split("(")[-1].rstrip(")")
         student = next((s for s in self._state.students if s["id"] == sid), None)
         if not student:
@@ -290,6 +282,8 @@ class ReportsScreen(ctk.CTkFrame):
         for w in self._att_table_frame.winfo_children():
             w.destroy()
         cls = self._att_class_var.get()
+        if not cls:
+            return
         students = self._state.get_students_by_class(cls)
 
         thead = ctk.CTkFrame(self._att_table_frame, fg_color=Colors.BG_TABLE_HEAD,

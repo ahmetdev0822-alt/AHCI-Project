@@ -3,13 +3,12 @@ app/screens/marks.py
 Marks / Performance Screen – Blue & White theme + strict RBAC:
   - Admin:   VIEW ONLY – read-only labels, no Save button
   - Teacher: EDIT – enter marks for their assigned classes only
-  - Student: VIEW ONLY – sees only their own marks
 """
 
 import customtkinter as ctk
 from app.config import (
     Colors, Fonts, Spacing, CARD_CORNER,
-    ROLE_ADMIN, ROLE_TEACHER, ROLE_STUDENT,
+    ROLE_ADMIN, ROLE_TEACHER,
 )
 from app.components.cards import SectionHeader, StatusBadge
 from app.data.sample_data import SUBJECTS, ASSESSMENT_TYPES
@@ -25,13 +24,10 @@ class MarksScreen(ctk.CTkFrame):
 
         role = self._state.current_role
         self._editable = (role == ROLE_TEACHER)
-        self._is_student = (role == ROLE_STUDENT)
 
         if role == ROLE_TEACHER:
             my_classes = self._state.get_classes_for_role()
             self._sel_class = my_classes[0] if my_classes else "Class 8-A"
-        elif role == ROLE_STUDENT:
-            self._sel_class = self._state.current_user.get("class", "Class 8-A")
         else:
             all_classes = sorted({s["class"] for s in self._state.students})
             self._sel_class = all_classes[0] if all_classes else "Class 8-A"
@@ -47,18 +43,12 @@ class MarksScreen(ctk.CTkFrame):
         pad  = Spacing.XL
         role = self._state.current_role
 
-        # ── Read-Only Banner ──────────────────────────────────────────────────
-        if not self._editable:
-            if role == ROLE_ADMIN:
-                banner_text  = "🔒  Administrator View  –  You can view and print marks, but cannot enter or edit them."
-                banner_color = Colors.INFO_BG
-                border_color = Colors.INFO
-                text_color   = Colors.INFO
-            else:
-                banner_text  = f"👁  Viewing your own marks for {self._sel_class}  –  Read Only."
-                banner_color = Colors.PRIMARY_LIGHT
-                border_color = Colors.PRIMARY
-                text_color   = Colors.PRIMARY
+        # ── Read-Only Banner (Admin) ──────────────────────────────────────────
+        if not self._editable and role == ROLE_ADMIN:
+            banner_text  = "🔒  Administrator View  –  You can view and print marks, but cannot enter or edit them."
+            banner_color = Colors.INFO_BG
+            border_color = Colors.INFO
+            text_color   = Colors.INFO
 
             banner = ctk.CTkFrame(self, fg_color=banner_color, corner_radius=8,
                                    border_width=1, border_color=border_color)
@@ -84,12 +74,10 @@ class MarksScreen(ctk.CTkFrame):
 
         if role == ROLE_TEACHER:
             class_list = self._state.get_classes_for_role()
-        elif role == ROLE_STUDENT:
-            class_list = [self._sel_class]
         else:
             class_list = sorted({s["class"] for s in self._state.students})
 
-        def make_selector(label_text, values, default, disabled=False):
+        def make_selector(label_text, values, default):
             ctk.CTkLabel(sel_inner, text=label_text,
                          font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
                          text_color=Colors.TEXT_SECONDARY).pack(side="left", padx=(0, 4))
@@ -102,12 +90,9 @@ class MarksScreen(ctk.CTkFrame):
                 command=lambda _: self._reload(),
             )
             menu.pack(side="left", padx=(0, 20))
-            if disabled:
-                menu.configure(state="disabled")
             return var
 
-        self._class_var      = make_selector("Class:",      class_list,     self._sel_class,
-                                             disabled=self._is_student)
+        self._class_var      = make_selector("Class:",      class_list,     self._sel_class)
         subject_list         = SUBJECTS.get(self._sel_class, ["Mathematics"])
         self._subject_var    = make_selector("Subject:",    subject_list,   self._sel_subject)
         self._assessment_var = make_selector("Assessment:", ASSESSMENT_TYPES, self._sel_assessment)
@@ -154,10 +139,7 @@ class MarksScreen(ctk.CTkFrame):
                               corner_radius=0, height=36)
         thead.pack(fill="x")
         thead.pack_propagate(False)
-        if self._editable:
-            cols = [(40, "#"), (60, "Roll"), (220, "Student Name"), (120, "Obtained Marks"), (80, "Grade"), (80, "% Score")]
-        else:
-            cols = [(40, "#"), (60, "Roll"), (220, "Student Name"), (120, "Marks Obtained"), (80, "Grade"), (80, "% Score")]
+        cols = [(40, "#"), (60, "Roll"), (220, "Student Name"), (120, "Marks Obtained"), (80, "Grade"), (80, "% Score")]
         for w, lbl in cols:
             ctk.CTkLabel(thead, text=lbl, width=w,
                          font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
@@ -196,12 +178,7 @@ class MarksScreen(ctk.CTkFrame):
         self._subject_var.set(subjects[0] if subjects else "Mathematics")
         self._sel_subject = self._subject_var.get()
 
-        # For students: only their own row
-        if self._is_student:
-            sid = self._state.current_user.get("student_id", "S001")
-            students = [s for s in self._state.students if s["id"] == sid]
-        else:
-            students = self._state.get_students_by_class(self._sel_class)
+        students = self._state.get_students_by_class(self._sel_class)
 
         existing = {
             m["student_id"]: m["obtained"]
@@ -253,7 +230,7 @@ class MarksScreen(ctk.CTkFrame):
                 )
                 entry.pack(side="left", padx=4)
             else:
-                # Read-only label (Admin / Student)
+                # Read-only label (Admin)
                 score_text = str(existing.get(sid, "—"))
                 try:
                     total = int(self._total_marks.get())

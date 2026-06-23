@@ -1,14 +1,14 @@
 """
 app/screens/dashboard.py
 Role-aware dashboard – Blue & White theme.
-Admin / Teacher / Student views.
+Admin / Teacher views.
 """
 
 import customtkinter as ctk
 from datetime import date
 from app.config import (
     Colors, Fonts, Spacing, CARD_CORNER,
-    ROLE_ADMIN, ROLE_TEACHER, ROLE_STUDENT,
+    ROLE_ADMIN, ROLE_TEACHER,
 )
 from app.components.cards import MetricCard, AlertCard, QuickActionCard, SectionHeader, StatusBadge
 from app.data.sample_data import get_dashboard_stats
@@ -27,9 +27,10 @@ class DashboardScreen(ctk.CTkFrame):
         role   = self._state.current_role
         scroll = ctk.CTkScrollableFrame(self, fg_color=Colors.BG_MAIN, corner_radius=0)
         scroll.pack(fill="both", expand=True)
-        if   role == ROLE_ADMIN:   self._build_admin(scroll)
-        elif role == ROLE_TEACHER: self._build_teacher(scroll)
-        else:                      self._build_student(scroll)
+        if role == ROLE_ADMIN:
+            self._build_admin(scroll)
+        elif role == ROLE_TEACHER:
+            self._build_teacher(scroll)
 
     # ─────────────────────────────────────────────── ADMIN ────
     def _build_admin(self, parent):
@@ -275,97 +276,3 @@ class DashboardScreen(ctk.CTkFrame):
                              font=(Fonts.FAMILY, Fonts.SIZE_XS),
                              text_color=Colors.TEXT_MUTED).pack(side="left", padx=4)
             ctk.CTkFrame(ap, height=1, fg_color=Colors.DIVIDER).pack(fill="x")
-
-    # ─────────────────────────────────────────────── STUDENT ──
-    def _build_student(self, parent):
-        pad  = Spacing.XL
-        name = self._state.current_user.get("full_name", "Student")
-        sid  = self._state.current_user.get("student_id", "S001")
-        cls  = self._state.current_user.get("class", "Class 8-A")
-
-        banner = ctk.CTkFrame(parent, fg_color=Colors.PRIMARY, corner_radius=12, height=96)
-        banner.pack(fill="x", padx=pad, pady=(pad, 0))
-        banner.pack_propagate(False)
-        bi = ctk.CTkFrame(banner, fg_color="transparent")
-        bi.place(relx=0.03, rely=0.5, anchor="w")
-        ctk.CTkLabel(bi, text=f"Welcome, {name} 🎒",
-                     font=(Fonts.FAMILY, Fonts.SIZE_2XL, Fonts.WEIGHT_BOLD),
-                     text_color=Colors.TEXT_WHITE).pack(anchor="w")
-        ctk.CTkLabel(bi, text=date.today().strftime("%A, %d %B %Y") + f"  ·  {cls}",
-                     font=(Fonts.FAMILY, Fonts.SIZE_SM),
-                     text_color="#90CAF9").pack(anchor="w", pady=(3, 0))
-        ctk.CTkLabel(bi, text="Student  ·  You can only view your own records",
-                     font=(Fonts.FAMILY, Fonts.SIZE_XS),
-                     text_color="#64B5F6").pack(anchor="w", pady=(2, 0))
-
-        # KPIs
-        cf = ctk.CTkFrame(parent, fg_color="transparent")
-        cf.pack(fill="x", padx=pad, pady=(Spacing.XL, 0))
-        att_pct   = self._state.compute_attendance_pct(sid)
-        att_color = Colors.SUCCESS if att_pct >= 75 else Colors.DANGER
-        for col, (title, value, accent, sub) in enumerate([
-            ("My Attendance", f"{att_pct}%", att_color,   "This session"),
-            ("Best Subject",  "Islamic St.", Colors.ACCENT,  "92 / 100"),
-            ("Class Rank",    "#4",          Colors.WARNING, "Out of 35 students"),
-            ("Upcoming Test", "2 Days",      Colors.DANGER,  "Final Exam – Math"),
-        ]):
-            cf.columnconfigure(col, weight=1)
-            MetricCard(cf, title=title, value=value, icon="●", accent=accent, sub_label=sub,
-                       ).grid(row=0, column=col, padx=(0, Spacing.MD if col < 3 else 0),
-                               sticky="nsew", ipady=6)
-
-        # Quick Actions
-        SectionHeader(parent, "My Quick Links", "Access your academic information"
-                      ).pack(fill="x", padx=pad, pady=(Spacing.XL, Spacing.SM))
-        qa = ctk.CTkFrame(parent, fg_color="transparent")
-        qa.pack(fill="x", padx=pad)
-        for col, (label, nav, color) in enumerate([
-            ("My Attendance", "attendance", Colors.SUCCESS),
-            ("My Results",    "marks",      Colors.PRIMARY),
-            ("My Timetable",  "timetable",  Colors.ACCENT),
-            ("My Report",     "reports",    Colors.WARNING),
-        ]):
-            qa.columnconfigure(col, weight=1)
-            QuickActionCard(qa, label=label, icon="→",
-                            command=lambda n=nav: self._navigate(n), accent=color,
-                            ).grid(row=0, column=col, padx=(0, Spacing.MD if col < 3 else 0),
-                                    sticky="nsew", ipady=4)
-
-        # Recent Results
-        SectionHeader(parent, "My Recent Results", "Latest exam scores"
-                      ).pack(fill="x", padx=pad, pady=(Spacing.XL, Spacing.SM))
-        mp = ctk.CTkFrame(parent, fg_color=Colors.BG_CARD, corner_radius=CARD_CORNER,
-                           border_width=1, border_color=Colors.BORDER)
-        mp.pack(fill="x", padx=pad, pady=(0, pad))
-
-        # Header
-        thead = ctk.CTkFrame(mp, fg_color=Colors.BG_TABLE_HEAD, corner_radius=0, height=34)
-        thead.pack(fill="x")
-        thead.pack_propagate(False)
-        for w, lbl in [(180, "Subject"), (160, "Assessment"), (120, "Score"), (80, "Grade")]:
-            ctk.CTkLabel(thead, text=lbl, width=w,
-                         font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
-                         text_color=Colors.TEXT_HEADING, anchor="w").pack(side="left", padx=(8, 0))
-
-        from app.data.sample_data import MARKS_RECORDS
-        my_marks = [m for m in MARKS_RECORDS if m["student_id"] == sid][:6]
-        if not my_marks:
-            ctk.CTkLabel(mp, text="No results recorded yet.",
-                         font=(Fonts.FAMILY, Fonts.SIZE_MD),
-                         text_color=Colors.TEXT_MUTED).pack(pady=20)
-        for i, m in enumerate(my_marks):
-            bg  = Colors.BG_TABLE_ROW if i % 2 == 0 else Colors.BG_TABLE_ALT
-            row = ctk.CTkFrame(mp, fg_color=bg, height=38)
-            row.pack(fill="x")
-            row.pack_propagate(False)
-            ctk.CTkLabel(row, text=f"  {m['subject']}", width=180,
-                         font=(Fonts.FAMILY, Fonts.SIZE_SM),
-                         text_color=Colors.TEXT_PRIMARY, anchor="w").pack(side="left")
-            ctk.CTkLabel(row, text=m["assessment"], width=160,
-                         font=(Fonts.FAMILY, Fonts.SIZE_SM),
-                         text_color=Colors.TEXT_SECONDARY, anchor="w").pack(side="left")
-            ctk.CTkLabel(row, text=f"{m['obtained']}/{m['total_marks']}", width=120,
-                         font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
-                         text_color=Colors.TEXT_PRIMARY, anchor="w").pack(side="left")
-            StatusBadge(row, m["grade"]).pack(side="left", pady=6, padx=(0, 8))
-            ctk.CTkFrame(mp, height=1, fg_color=Colors.DIVIDER).pack(fill="x")
