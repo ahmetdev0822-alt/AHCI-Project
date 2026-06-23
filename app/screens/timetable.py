@@ -69,9 +69,9 @@ class TimetableScreen(ctk.CTkFrame):
             (Colors.WARNING,   Colors.WARNING_BG),
             (Colors.SUCCESS,   Colors.SUCCESS_BG),
             (Colors.DANGER,    Colors.DANGER_BG),
-            (Colors.ACCENT,    "#FDF8E7"),
-            ("#7B68EE",        "#F0EEFF"),
-            ("#2E8B57",        "#E6F7EF"),
+            (Colors.ACCENT,    "#E0F2F1"),
+            ("#5C6BC0",        "#E8EAF6"),
+            ("#00ACC1",        "#E0F7FA"),
         ]
         subjects = set()
         for day_data in TIMETABLE_DATA.values():
@@ -93,7 +93,7 @@ class TimetableScreen(ctk.CTkFrame):
         grid.pack(fill="both", expand=True)
 
         # ── Header row: Period times ──────────────────────────────────────────
-        hrow = ctk.CTkFrame(grid, fg_color=Colors.SECONDARY, corner_radius=0, height=44)
+        hrow = ctk.CTkFrame(grid, fg_color=Colors.PRIMARY, corner_radius=0, height=44)
         hrow.pack(fill="x")
         hrow.pack_propagate(False)
 

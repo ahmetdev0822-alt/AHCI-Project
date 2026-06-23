@@ -1,12 +1,12 @@
 """
 app/screens/login.py
-Professional login screen for EduTrack – Dar-e-Arqam School.
+Premium Blue & White Login Screen – EduTrack / Dar-e-Arqam School.
 """
 
 import customtkinter as ctk
 from app.config import (
     Colors, Fonts, Spacing, ROLES, DEMO_USERS,
-    APP_NAME, SCHOOL_NAME, CARD_CORNER, ROLE_ADMIN,
+    APP_NAME, SCHOOL_NAME, ROLE_ADMIN,
 )
 
 
@@ -29,14 +29,21 @@ class LoginScreen(ctk.CTkFrame):
         left = ctk.CTkFrame(self, fg_color=Colors.PRIMARY, corner_radius=0)
         left.grid(row=0, column=0, sticky="nsew")
 
-        brand_inner = ctk.CTkFrame(left, fg_color="transparent")
-        brand_inner.place(relx=0.5, rely=0.45, anchor="center")
+        # Decorative gradient overlay bar at top
+        top_bar = ctk.CTkFrame(left, fg_color=Colors.PRIMARY_DARK, corner_radius=0, height=6)
+        top_bar.pack(fill="x")
 
-        ctk.CTkLabel(
-            brand_inner, text="🏫",
-            font=(Fonts.FAMILY, 72),
-            text_color=Colors.TEXT_WHITE,
-        ).pack(pady=(0, 16))
+        brand_inner = ctk.CTkFrame(left, fg_color="transparent")
+        brand_inner.place(relx=0.5, rely=0.44, anchor="center")
+
+        # Icon
+        icon_bg = ctk.CTkFrame(brand_inner, width=100, height=100,
+                                fg_color="#0D47A1", corner_radius=50)
+        icon_bg.pack(pady=(0, 20))
+        icon_bg.pack_propagate(False)
+        ctk.CTkLabel(icon_bg, text="🎓",
+                     font=(Fonts.FAMILY, 48),
+                     text_color=Colors.TEXT_WHITE).pack(expand=True)
 
         ctk.CTkLabel(
             brand_inner, text=APP_NAME,
@@ -47,36 +54,51 @@ class LoginScreen(ctk.CTkFrame):
         ctk.CTkLabel(
             brand_inner, text="School Management System",
             font=(Fonts.FAMILY, Fonts.SIZE_XL),
-            text_color="#A8D5BC",
+            text_color="#90CAF9",
         ).pack(pady=(4, 0))
 
+        # Divider
         ctk.CTkFrame(
-            brand_inner, height=2, width=200,
-            fg_color=Colors.ACCENT, corner_radius=1,
-        ).pack(pady=24)
+            brand_inner, height=2, width=220,
+            fg_color="#42A5F5", corner_radius=1,
+        ).pack(pady=22)
 
         ctk.CTkLabel(
             brand_inner, text=SCHOOL_NAME,
             font=(Fonts.FAMILY, Fonts.SIZE_LG, Fonts.WEIGHT_BOLD),
-            text_color=Colors.ACCENT,
+            text_color="#BBDEFB",
         ).pack()
 
         ctk.CTkLabel(
-            brand_inner, text="Excellence · Discipline · Character",
+            brand_inner, text="Excellence  ·  Discipline  ·  Character",
             font=(Fonts.FAMILY, Fonts.SIZE_SM),
-            text_color="#A8D5BC",
+            text_color="#90CAF9",
         ).pack(pady=(6, 0))
+
+        # Feature bullets
+        bullets_frame = ctk.CTkFrame(brand_inner, fg_color="transparent")
+        bullets_frame.pack(pady=(28, 0))
+        for bullet in ["Role-Based Access Control", "Attendance & Marks Management",
+                        "Timetable & Conflict Detection", "PDF & Excel Report Export"]:
+            row = ctk.CTkFrame(bullets_frame, fg_color="transparent")
+            row.pack(anchor="w", pady=2)
+            ctk.CTkLabel(row, text="✓",
+                         font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
+                         text_color="#42A5F5").pack(side="left", padx=(0, 8))
+            ctk.CTkLabel(row, text=bullet,
+                         font=(Fonts.FAMILY, Fonts.SIZE_SM),
+                         text_color="#BBDEFB").pack(side="left")
 
         # Bottom tagline
         ctk.CTkLabel(
             left,
-            text="Powered by EduTrack v1.0  |  © 2025 Dar-e-Arqam",
+            text="Powered by EduTrack v2.0  ·  © 2025 Dar-e-Arqam School",
             font=(Fonts.FAMILY, Fonts.SIZE_XS),
-            text_color="#68A882",
-        ).place(relx=0.5, rely=0.95, anchor="center")
+            text_color="#64B5F6",
+        ).place(relx=0.5, rely=0.96, anchor="center")
 
         # ── Right panel – form ────────────────────────────────────────────────
-        right = ctk.CTkFrame(self, fg_color=Colors.BG_MAIN, corner_radius=0)
+        right = ctk.CTkFrame(self, fg_color="#F4F7FA", corner_radius=0)
         right.grid(row=0, column=1, sticky="nsew")
 
         card = ctk.CTkFrame(
@@ -86,15 +108,19 @@ class LoginScreen(ctk.CTkFrame):
             border_width=1,
             border_color=Colors.BORDER,
         )
-        card.place(relx=0.5, rely=0.5, anchor="center", relwidth=0.72)
+        card.place(relx=0.5, rely=0.5, anchor="center", relwidth=0.74)
 
         # Card inner
         inner = ctk.CTkFrame(card, fg_color="transparent")
-        inner.pack(fill="both", expand=True, padx=40, pady=40)
+        inner.pack(fill="both", expand=True, padx=40, pady=36)
+
+        # Blue top accent
+        ctk.CTkFrame(card, height=4, fg_color=Colors.PRIMARY,
+                     corner_radius=0).place(relx=0, rely=0, anchor="nw", relwidth=1.0)
 
         # Welcome text
         ctk.CTkLabel(
-            inner, text="Welcome Back",
+            inner, text="Welcome Back 👋",
             font=(Fonts.FAMILY, Fonts.SIZE_4XL, Fonts.WEIGHT_BOLD),
             text_color=Colors.TEXT_HEADING,
             anchor="w",
@@ -104,15 +130,19 @@ class LoginScreen(ctk.CTkFrame):
             font=(Fonts.FAMILY, Fonts.SIZE_SM),
             text_color=Colors.TEXT_MUTED,
             anchor="w",
-        ).pack(anchor="w", pady=(4, 28))
+        ).pack(anchor="w", pady=(4, 24))
 
         # Role selector
         self._make_label(inner, "Login As")
-        role_frame = ctk.CTkFrame(inner, fg_color="transparent")
-        role_frame.pack(fill="x", pady=(4, 16))
+        role_frame = ctk.CTkFrame(inner, fg_color=Colors.BG_INPUT,
+                                   corner_radius=8, border_width=1,
+                                   border_color=Colors.BORDER)
+        role_frame.pack(fill="x", pady=(4, 18))
+        role_inner = ctk.CTkFrame(role_frame, fg_color="transparent")
+        role_inner.pack(padx=12, pady=8)
         for role in ROLES:
             rb = ctk.CTkRadioButton(
-                role_frame, text=role,
+                role_inner, text=role,
                 variable=self._role_var, value=role,
                 font=(Fonts.FAMILY, Fonts.SIZE_MD),
                 text_color=Colors.TEXT_PRIMARY,
@@ -138,33 +168,33 @@ class LoginScreen(ctk.CTkFrame):
             text_color=Colors.DANGER,
             anchor="w",
         )
-        self._error_lbl.pack(anchor="w", pady=(4, 0))
+        self._error_lbl.pack(anchor="w", pady=(2, 0))
 
         # Login button
         ctk.CTkButton(
             inner, text="Sign In  →",
-            height=48, corner_radius=10,
+            height=46, corner_radius=10,
             font=(Fonts.FAMILY, Fonts.SIZE_LG, Fonts.WEIGHT_BOLD),
             fg_color=Colors.PRIMARY,
             hover_color=Colors.PRIMARY_DARK,
             text_color=Colors.TEXT_WHITE,
             command=self._attempt_login,
-        ).pack(fill="x", pady=(20, 0))
+        ).pack(fill="x", pady=(18, 0))
 
         # Demo credentials hint
         hint_box = ctk.CTkFrame(
             inner, fg_color=Colors.PRIMARY_LIGHT,
-            corner_radius=8, border_width=1, border_color=Colors.PRIMARY,
+            corner_radius=8, border_width=1, border_color="#90CAF9",
         )
-        hint_box.pack(fill="x", pady=(20, 0))
+        hint_box.pack(fill="x", pady=(16, 0))
         ctk.CTkLabel(
             hint_box,
-            text="💡  Demo Credentials  —  Admin: admin / admin123  |  "
-                 "Teacher: teacher / teacher123  |  Student: student / student123",
+            text="💡  Demo Credentials\n"
+                 "Admin: admin / admin123   ·   Teacher: teacher / teacher123   ·   Student: student / student123",
             font=(Fonts.FAMILY, Fonts.SIZE_XS),
             text_color=Colors.PRIMARY,
             wraplength=340,
-            justify="left",
+            justify="center",
         ).pack(padx=12, pady=8)
 
         # Pre-fill based on current role selection
@@ -191,7 +221,7 @@ class LoginScreen(ctk.CTkFrame):
             placeholder_text_color=Colors.TEXT_MUTED,
             show="●" if is_password else "",
         )
-        entry.pack(fill="x", pady=(0, 16))
+        entry.pack(fill="x", pady=(0, 14))
         entry.bind("<FocusIn>",  lambda e: entry.configure(border_color=Colors.BORDER_FOCUS))
         entry.bind("<FocusOut>", lambda e: entry.configure(border_color=Colors.BORDER))
         return entry

@@ -1,6 +1,7 @@
 """
 app/components/cards.py
-Reusable card widgets: MetricCard, AlertCard, QuickActionCard, SectionHeader.
+Reusable card widgets – Blue & White theme.
+MetricCard, AlertCard, QuickActionCard, SectionHeader, StatusBadge
 """
 
 import customtkinter as ctk
@@ -11,9 +12,10 @@ class MetricCard(ctk.CTkFrame):
     """
     A stat/KPI card:
       ┌─────────────────────────────┐
+      │  [top accent strip]         │
       │  [icon]   [title]           │
-      │  [big value]  [sub-label]   │
-      │  [trend badge]              │
+      │  [big value]                │
+      │  [sub-label]   [trend]      │
       └─────────────────────────────┘
     """
 
@@ -24,7 +26,7 @@ class MetricCard(ctk.CTkFrame):
         icon:       str  = "📊",
         sub_label:  str  = "",
         accent:     str  = Colors.PRIMARY,
-        trend:      str  = "",          # e.g. "+3 this week"
+        trend:      str  = "",
         trend_color:str  = Colors.SUCCESS,
         **kwargs
     ):
@@ -95,7 +97,7 @@ class MetricCard(ctk.CTkFrame):
             Colors.WARNING:  Colors.WARNING_BG,
             Colors.DANGER:   Colors.DANGER_BG,
             Colors.INFO:     Colors.INFO_BG,
-            Colors.ACCENT:   "#FDF8E7",
+            Colors.ACCENT:   "#E0F2F1",
         }
         return mapping.get(hex_color, Colors.BG_INPUT)
 
@@ -109,9 +111,7 @@ class MetricCard(ctk.CTkFrame):
 
 
 class AlertCard(ctk.CTkFrame):
-    """
-    A warning / alert box with icon and message.
-    """
+    """A warning / alert box with icon and message."""
     STYLES = {
         "warning": (Colors.WARNING, Colors.WARNING_BG, "⚠"),
         "danger":  (Colors.DANGER,  Colors.DANGER_BG,  "✕"),
@@ -125,7 +125,7 @@ class AlertCard(ctk.CTkFrame):
         super().__init__(parent, fg_color=bg, corner_radius=CARD_CORNER,
                          border_width=1, border_color=accent, **kwargs)
         body = ctk.CTkFrame(self, fg_color="transparent")
-        body.pack(fill="both", expand=True, padx=14, pady=12)
+        body.pack(fill="both", expand=True, padx=14, pady=10)
 
         head = ctk.CTkFrame(body, fg_color="transparent")
         head.pack(fill="x")
@@ -154,9 +154,9 @@ class QuickActionCard(ctk.CTkFrame):
         inner.pack(expand=True, pady=Spacing.LG, padx=Spacing.MD)
 
         # Icon circle
-        icon_bg = ctk.CTkFrame(inner, width=44, height=44,
+        icon_bg = ctk.CTkFrame(inner, width=46, height=46,
                                 fg_color=MetricCard._alpha_color(accent),
-                                corner_radius=22)
+                                corner_radius=23)
         icon_bg.pack()
         icon_bg.pack_propagate(False)
         ctk.CTkLabel(icon_bg, text=icon,
@@ -185,7 +185,7 @@ class QuickActionCard(ctk.CTkFrame):
 
 
 class SectionHeader(ctk.CTkFrame):
-    """A clean section title with optional right-side widget."""
+    """A clean section title with blue left accent bar."""
 
     def __init__(self, parent, title: str, subtitle: str = "",
                  right_widget=None, **kwargs):
@@ -193,7 +193,7 @@ class SectionHeader(ctk.CTkFrame):
         left = ctk.CTkFrame(self, fg_color="transparent")
         left.pack(side="left", fill="y")
 
-        # Green left border accent
+        # Blue left border accent
         ctk.CTkFrame(left, width=4, height=32,
                      fg_color=Colors.PRIMARY, corner_radius=2).pack(
             side="left", padx=(0, 10))
@@ -213,14 +213,18 @@ class SectionHeader(ctk.CTkFrame):
 
 
 class StatusBadge(ctk.CTkLabel):
-    """Colored status pill (Active / Absent / etc.)."""
+    """Colored status pill."""
     PRESETS = {
         "Active":   (Colors.SUCCESS_BG, Colors.SUCCESS),
         "Present":  (Colors.SUCCESS_BG, Colors.SUCCESS),
         "Absent":   (Colors.DANGER_BG,  Colors.DANGER),
         "Late":     (Colors.WARNING_BG, Colors.WARNING),
+        "Leave":    (Colors.INFO_BG,    Colors.INFO),
         "On Leave": (Colors.WARNING_BG, Colors.WARNING),
         "Inactive": ("#F0F0F0",         Colors.TEXT_MUTED),
+        "Good":     (Colors.SUCCESS_BG, Colors.SUCCESS),
+        "Warning":  (Colors.WARNING_BG, Colors.WARNING),
+        "Critical": (Colors.DANGER_BG,  Colors.DANGER),
         "A+":       (Colors.SUCCESS_BG, Colors.SUCCESS),
         "A":        (Colors.SUCCESS_BG, Colors.SUCCESS),
         "B+":       (Colors.INFO_BG,    Colors.INFO),

@@ -1,6 +1,6 @@
 """
 app/screens/teachers.py
-Teacher Management screen – Admin only.
+Teacher Management screen – Admin only. Blue & White theme.
 """
 
 import customtkinter as ctk
@@ -29,7 +29,7 @@ class TeachersScreen(ctk.CTkFrame):
         ).pack(side="left", fill="y")
 
         ctk.CTkButton(
-            toolbar, text="+  Add Teacher",
+            toolbar, text="＋  Add Teacher",
             height=36, corner_radius=8,
             font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
             fg_color=Colors.PRIMARY, hover_color=Colors.PRIMARY_DARK,
@@ -40,17 +40,21 @@ class TeachersScreen(ctk.CTkFrame):
         # Stat chips
         chips = ctk.CTkFrame(self, fg_color="transparent")
         chips.pack(fill="x", padx=pad, pady=(0, Spacing.SM))
+        total    = len(self._state.teachers)
+        active   = sum(1 for t in self._state.teachers if t["status"]=="Active")
+        on_leave = sum(1 for t in self._state.teachers if t["status"]=="On Leave")
         chip_data = [
-            ("Active",   sum(1 for t in self._state.teachers if t["status"]=="Active"),   Colors.SUCCESS, Colors.SUCCESS_BG),
-            ("On Leave", sum(1 for t in self._state.teachers if t["status"]=="On Leave"), Colors.WARNING, Colors.WARNING_BG),
+            ("Total",    total,    Colors.PRIMARY, Colors.PRIMARY_LIGHT),
+            ("Active",   active,   Colors.SUCCESS, Colors.SUCCESS_BG),
+            ("On Leave", on_leave, Colors.WARNING, Colors.WARNING_BG),
         ]
         for label, val, color, bg in chip_data:
             chip = ctk.CTkFrame(chips, fg_color=bg, corner_radius=8,
                                  border_width=1, border_color=color)
             chip.pack(side="left", padx=(0, Spacing.SM))
-            ctk.CTkLabel(chip, text=f"{val} {label}",
+            ctk.CTkLabel(chip, text=f"  {val}  {label}  ",
                          font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
-                         text_color=color).pack(padx=12, pady=4)
+                         text_color=color).pack(padx=4, pady=4)
 
         columns = [
             {"key": "id",              "label": "ID",          "width": 60,  "align": "w"},
@@ -83,13 +87,13 @@ class TeachersScreen(ctk.CTkFrame):
         if is_new:
             data["id"] = f"T{len(self._state.teachers)+1:03d}"
             self._state.teachers.append(data)
-            self._toast("Teacher added successfully!", "success")
+            self._toast("✓  Teacher added successfully!", "success")
         else:
             for i, t in enumerate(self._state.teachers):
                 if t["id"] == data["id"]:
                     self._state.teachers[i] = data
                     break
-            self._toast("Teacher record updated!", "success")
+            self._toast("✓  Teacher record updated!", "success")
         self._table.refresh(self._state.teachers)
 
     def _delete_teacher(self, row):
@@ -110,12 +114,30 @@ class TeacherForm(ctk.CTkToplevel):
         self.title(title)
         self.geometry("520x580")
         self.resizable(False, False)
-        self.grab_set()
+        # Attach to the application's toplevel and build UI first
+        try:
+            self.transient(parent.winfo_toplevel())
+        except Exception:
+            pass
         self.configure(fg_color=Colors.BG_MAIN)
         self._build(title)
 
+        # Ensure the window is mapped before taking the grab to avoid
+        # "grab failed: window not viewable" on some platforms
+        self.update_idletasks()
+        try:
+            self.wait_visibility()
+        except Exception:
+            pass
+        try:
+            self.grab_set()
+            self.focus_set()
+        except Exception:
+            # If grab fails for any reason, continue without blocking
+            pass
+
     def _build(self, title):
-        header = ctk.CTkFrame(self, fg_color=Colors.SECONDARY, corner_radius=0, height=56)
+        header = ctk.CTkFrame(self, fg_color=Colors.PRIMARY, corner_radius=0, height=56)
         header.pack(fill="x")
         header.pack_propagate(False)
         ctk.CTkLabel(header, text=f"  🎓  {title}",
@@ -185,8 +207,8 @@ class TeacherForm(ctk.CTkToplevel):
                       fg_color=Colors.BG_INPUT, text_color=Colors.TEXT_SECONDARY,
                       hover_color=Colors.BG_HOVER, command=self.destroy
                       ).pack(side="right", padx=(8, 16), pady=12)
-        ctk.CTkButton(btn_row, text="Save Teacher", width=140, height=36, corner_radius=8,
-                      fg_color=Colors.SECONDARY, hover_color=Colors.SECONDARY_DARK,
+        ctk.CTkButton(btn_row, text="💾  Save Teacher", width=150, height=36, corner_radius=8,
+                      fg_color=Colors.PRIMARY, hover_color=Colors.PRIMARY_DARK,
                       text_color=Colors.TEXT_WHITE, command=self._save
                       ).pack(side="right", padx=(0, 4), pady=12)
 

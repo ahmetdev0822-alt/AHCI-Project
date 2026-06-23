@@ -1,12 +1,12 @@
 """
 app/config.py
-EduTrack Design System – Colors, Fonts, Constants
+EduTrack Design System – Blue & White Theme
 """
 
 # ─── Application Meta ────────────────────────────────────────────────────────
 APP_NAME        = "EduTrack"
 SCHOOL_NAME     = "Dar-e-Arqam School"
-APP_VERSION     = "1.0.0"
+APP_VERSION     = "2.0.0"
 WINDOW_SIZE     = "1400x820"
 WINDOW_MIN_SIZE = (1200, 700)
 
@@ -17,61 +17,62 @@ ROLE_STUDENT = "Student"
 
 ROLES = [ROLE_ADMIN, ROLE_TEACHER, ROLE_STUDENT]
 
-# ─── Color Palette ───────────────────────────────────────────────────────────
+# ─── Color Palette ── Blue & White Theme ─────────────────────────────────────
 class Colors:
-    # Brand
-    PRIMARY       = "#1B5E3B"   # Deep Forest Green
-    PRIMARY_DARK  = "#144830"   # Darker green (hover)
-    PRIMARY_LIGHT = "#E8F5EE"   # Light green tint (backgrounds)
-    SECONDARY     = "#1A2744"   # Navy Blue (sidebar)
-    SECONDARY_DARK= "#111B33"   # Darker navy (active items)
-    ACCENT        = "#D4AF37"   # Gold accent
+    # Brand – Deep Blue
+    PRIMARY       = "#1565C0"   # Deep Blue
+    PRIMARY_DARK  = "#0D47A1"   # Darker blue (hover)
+    PRIMARY_LIGHT = "#E3F2FD"   # Light blue tint (backgrounds)
+    SECONDARY     = "#1E3A5F"   # Dark Navy Blue (sidebar)
+    SECONDARY_DARK= "#152B47"   # Darker navy (active items)
+    ACCENT        = "#00897B"   # Teal – positive actions
 
     # Status / Semantic
-    SUCCESS       = "#27AE60"
-    SUCCESS_BG    = "#E8F8F0"
-    WARNING       = "#F39C12"
-    WARNING_BG    = "#FEF9E7"
-    DANGER        = "#E74C3C"
-    DANGER_BG     = "#FDEDEC"
-    INFO          = "#2980B9"
-    INFO_BG       = "#EBF5FB"
+    SUCCESS       = "#2E7D32"
+    SUCCESS_BG    = "#E8F5E9"
+    WARNING       = "#E65100"
+    WARNING_BG    = "#FFF3E0"
+    DANGER        = "#C62828"
+    DANGER_BG     = "#FFEBEE"
+    INFO          = "#1565C0"
+    INFO_BG       = "#E3F2FD"
 
     # Neutrals
-    BG_MAIN       = "#F0F2F5"   # Page background
+    BG_MAIN       = "#F4F7FA"   # Page background – very light blue-gray
     BG_CARD       = "#FFFFFF"   # Card / panel
-    BG_SIDEBAR    = "#1A2744"   # Sidebar background
+    BG_SIDEBAR    = "#1E3A5F"   # Sidebar background
     BG_TOPBAR     = "#FFFFFF"   # Top bar background
-    BG_INPUT      = "#F8F9FA"   # Input field background
+    BG_INPUT      = "#F8FAFC"   # Input field background
     BG_TABLE_ROW  = "#FFFFFF"
     BG_TABLE_ALT  = "#F7F9FC"
-    BG_TABLE_HEAD = "#EEF1F8"
-    BG_HOVER      = "#EBF3FF"
+    BG_TABLE_HEAD = "#E8EEF7"
+    BG_HOVER      = "#E3F2FD"
 
     # Text
     TEXT_PRIMARY   = "#1A2744"
-    TEXT_SECONDARY = "#5A6A85"
-    TEXT_MUTED     = "#8A9BBE"
+    TEXT_SECONDARY = "#4A5568"
+    TEXT_MUTED     = "#718096"
     TEXT_WHITE     = "#FFFFFF"
-    TEXT_HEADING   = "#0F1C35"
+    TEXT_HEADING   = "#0F2042"
 
     # Borders
     BORDER         = "#E2E8F0"
-    BORDER_FOCUS   = "#1B5E3B"
-    DIVIDER        = "#ECF0F7"
+    BORDER_FOCUS   = "#1565C0"
+    DIVIDER        = "#EDF2F7"
 
     # Sidebar
-    SIDEBAR_TEXT        = "#B8C5D6"
-    SIDEBAR_ICON        = "#7A8FAD"
-    SIDEBAR_ACTIVE_BG   = "#1B5E3B"
+    SIDEBAR_TEXT        = "#A8BDD6"
+    SIDEBAR_ICON        = "#6B8CAE"
+    SIDEBAR_ACTIVE_BG   = "#1565C0"
     SIDEBAR_ACTIVE_TEXT = "#FFFFFF"
-    SIDEBAR_HOVER_BG    = "#243559"
+    SIDEBAR_HOVER_BG    = "#243D5E"
 
     # Attendance Colors
-    PRESENT_COLOR = "#27AE60"
-    ABSENT_COLOR  = "#E74C3C"
-    LATE_COLOR    = "#F39C12"
-    LEAVE_COLOR   = "#2980B9"
+    PRESENT_COLOR = "#2E7D32"
+    ABSENT_COLOR  = "#C62828"
+    LATE_COLOR    = "#E65100"
+    LEAVE_COLOR   = "#1565C0"
+
 
 # ─── Font Sizes ──────────────────────────────────────────────────────────────
 class Fonts:
@@ -102,7 +103,7 @@ class Spacing:
     XXL = 28
     SECTION = 32
 
-SIDEBAR_WIDTH     = 230
+SIDEBAR_WIDTH     = 235
 TOPBAR_HEIGHT     = 64
 CARD_CORNER       = 10
 BUTTON_CORNER     = 8
@@ -112,49 +113,55 @@ TABLE_ROW_HEIGHT  = 40
 # ─── Navigation Items per Role ───────────────────────────────────────────────
 NAV_ITEMS = {
     ROLE_ADMIN: [
-        {"key": "dashboard",   "label": "Dashboard",   "icon": "⊞"},
-        {"key": "students",    "label": "Students",    "icon": "👤"},
-        {"key": "teachers",    "label": "Teachers",    "icon": "🎓"},
-        {"key": "classes",     "label": "Classes",     "icon": "🏫"},
-        {"key": "attendance",  "label": "Attendance",  "icon": "✓"},
-        {"key": "marks",       "label": "Performance", "icon": "📊"},
-        {"key": "timetable",   "label": "Timetable",   "icon": "📅"},
-        {"key": "reports",     "label": "Reports",     "icon": "📋"},
+        {"key": "dashboard",   "label": "Dashboard",          "icon": "⊞"},
+        {"key": "students",    "label": "Students",           "icon": "👤"},
+        {"key": "teachers",    "label": "Teachers",           "icon": "🎓"},
+        {"key": "classes",     "label": "Classes",            "icon": "🏫"},
+        {"key": "attendance",  "label": "Attendance",         "icon": "✓"},
+        {"key": "marks",       "label": "Marks & Performance","icon": "📊"},
+        {"key": "timetable",   "label": "Timetable",          "icon": "📅"},
+        {"key": "reports",     "label": "Reports",            "icon": "📋"},
     ],
     ROLE_TEACHER: [
-        {"key": "dashboard",   "label": "Dashboard",   "icon": "⊞"},
-        {"key": "attendance",  "label": "Attendance",  "icon": "✓"},
-        {"key": "marks",       "label": "Performance", "icon": "📊"},
-        {"key": "timetable",   "label": "Timetable",   "icon": "📅"},
-        {"key": "reports",     "label": "Reports",     "icon": "📋"},
+        {"key": "dashboard",   "label": "Dashboard",          "icon": "⊞"},
+        {"key": "attendance",  "label": "Mark Attendance",    "icon": "✓"},
+        {"key": "marks",       "label": "Enter Marks",        "icon": "📊"},
+        {"key": "timetable",   "label": "Timetable",          "icon": "📅"},
+        {"key": "reports",     "label": "Class Reports",      "icon": "📋"},
     ],
     ROLE_STUDENT: [
-        {"key": "dashboard",   "label": "Dashboard",   "icon": "⊞"},
-        {"key": "attendance",  "label": "My Attendance","icon": "✓"},
-        {"key": "marks",       "label": "My Results",  "icon": "📊"},
-        {"key": "timetable",   "label": "Timetable",   "icon": "📅"},
-        {"key": "reports",     "label": "My Report",   "icon": "📋"},
+        {"key": "dashboard",   "label": "Dashboard",          "icon": "⊞"},
+        {"key": "attendance",  "label": "My Attendance",      "icon": "✓"},
+        {"key": "marks",       "label": "My Results",         "icon": "📊"},
+        {"key": "timetable",   "label": "My Timetable",       "icon": "📅"},
+        {"key": "reports",     "label": "My Report Card",     "icon": "📋"},
     ],
 }
 
 # ─── Default Demo Credentials ─────────────────────────────────────────────────
 DEMO_USERS = {
     ROLE_ADMIN: {
-        "username": "admin",
-        "password": "admin123",
-        "full_name": "Muhammad Arif",
+        "username":    "admin",
+        "password":    "admin123",
+        "full_name":   "Muhammad Arif Khan",
         "designation": "System Administrator",
+        "student_id":  None,
+        "class":       None,
     },
     ROLE_TEACHER: {
-        "username": "teacher",
-        "password": "teacher123",
-        "full_name": "Ustaz Bilal Ahmed",
-        "designation": "Senior Teacher – Mathematics",
+        "username":    "teacher",
+        "password":    "teacher123",
+        "full_name":   "Ustaz Bilal Ahmed",
+        "designation": "Class Teacher – Class 6-A",
+        "student_id":  None,
+        "class":       "Class 6-A",
     },
     ROLE_STUDENT: {
-        "username": "student",
-        "password": "student123",
-        "full_name": "Ahmed Hassan Khan",
-        "designation": "Class 8-A | Roll# 12",
+        "username":    "student",
+        "password":    "student123",
+        "full_name":   "Ahmed Hassan Khan",
+        "designation": "Class 8-A  |  Roll No. 12",
+        "student_id":  "S001",
+        "class":       "Class 8-A",
     },
 }

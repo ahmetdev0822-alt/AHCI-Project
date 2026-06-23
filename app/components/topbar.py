@@ -1,15 +1,15 @@
 """
 app/components/topbar.py
-Top bar: screen title, breadcrumb, live clock, and quick search.
+Blue & White themed top navigation bar.
 """
 
 import customtkinter as ctk
-from datetime import datetime
-from app.config import Colors, Fonts, Spacing, TOPBAR_HEIGHT
+from datetime import date
+from app.config import Colors, Fonts, Spacing, TOPBAR_HEIGHT, APP_NAME
 
 
 class TopBar(ctk.CTkFrame):
-    """Horizontal top bar shown above every screen content area."""
+    """Horizontal top bar – shows page title, user info, current date."""
 
     def __init__(self, parent, state, **kwargs):
         super().__init__(
@@ -22,82 +22,79 @@ class TopBar(ctk.CTkFrame):
         )
         self.pack_propagate(False)
         self._state = state
-        self._title_var = ctk.StringVar(value="Dashboard")
-        self._sub_var   = ctk.StringVar(value="Welcome back")
-
+        self._title_lbl    = None
+        self._subtitle_lbl = None
         self._build()
-        self._tick()
+
+        # Blue accent bottom border
+        ctk.CTkFrame(self, height=2, fg_color=Colors.BORDER,
+                     corner_radius=0).place(relx=0, rely=1.0, anchor="sw", relwidth=1.0)
 
     def _build(self):
-        # ── Left: Page title + breadcrumb ────────────────────────────────────
+        # Left side – breadcrumb / title
         left = ctk.CTkFrame(self, fg_color="transparent")
         left.pack(side="left", fill="y", padx=(Spacing.XL, 0))
 
+        # Blue accent left stripe
+        ctk.CTkFrame(left, width=3, height=28,
+                     fg_color=Colors.PRIMARY,
+                     corner_radius=2).pack(side="left", padx=(0, 10))
+
+        title_col = ctk.CTkFrame(left, fg_color="transparent")
+        title_col.pack(side="left", fill="y", pady=10)
+
         self._title_lbl = ctk.CTkLabel(
-            left,
-            textvariable=self._title_var,
+            title_col,
+            text="Dashboard",
             font=(Fonts.FAMILY, Fonts.SIZE_XL, Fonts.WEIGHT_BOLD),
             text_color=Colors.TEXT_HEADING,
             anchor="w",
         )
-        self._title_lbl.pack(anchor="w", pady=(10, 0))
+        self._title_lbl.pack(anchor="w")
 
-        self._sub_lbl = ctk.CTkLabel(
-            left,
-            textvariable=self._sub_var,
-            font=(Fonts.FAMILY, Fonts.SIZE_XS),
+        self._subtitle_lbl = ctk.CTkLabel(
+            title_col,
+            text="",
+            font=(Fonts.FAMILY, Fonts.SIZE_SM),
             text_color=Colors.TEXT_MUTED,
             anchor="w",
         )
-        self._sub_lbl.pack(anchor="w")
+        self._subtitle_lbl.pack(anchor="w")
 
-        # ── Right: Clock + Divider ────────────────────────────────────────────
+        # Right side – date + user badge
         right = ctk.CTkFrame(self, fg_color="transparent")
         right.pack(side="right", fill="y", padx=Spacing.XL)
 
-        # School year badge
+        # Date chip
+        today_str = date.today().strftime("%a, %d %b %Y")
+        date_chip = ctk.CTkFrame(right, fg_color=Colors.PRIMARY_LIGHT,
+                                  corner_radius=8, border_width=1,
+                                  border_color=Colors.BORDER)
+        date_chip.pack(side="right", padx=(Spacing.MD, 0), pady=12)
         ctk.CTkLabel(
-            right,
-            text="Session 2025–26",
-            font=(Fonts.FAMILY, Fonts.SIZE_XS, Fonts.WEIGHT_BOLD),
-            text_color=Colors.PRIMARY,
-            fg_color=Colors.PRIMARY_LIGHT,
-            corner_radius=6,
-            padx=8, pady=3,
-        ).pack(side="right", pady=18, padx=(8, 0))
-
-        # Date / time
-        self._clock_lbl = ctk.CTkLabel(
-            right,
-            text="",
+            date_chip, text=f"  📅  {today_str}  ",
             font=(Fonts.FAMILY, Fonts.SIZE_SM),
-            text_color=Colors.TEXT_SECONDARY,
-        )
-        self._clock_lbl.pack(side="right", pady=18, padx=(0, Spacing.MD))
+            text_color=Colors.PRIMARY,
+        ).pack(pady=2)
 
-        # Bottom divider
-        ctk.CTkFrame(
-            self, height=1, fg_color=Colors.DIVIDER, corner_radius=0,
-        ).pack(side="bottom", fill="x")
+        # User role badge
+        role_colors = {
+            "Administrator": (Colors.PRIMARY,      Colors.PRIMARY_LIGHT),
+            "Teacher":       (Colors.ACCENT,       "#E0F2F1"),
+            "Student":       ("#E65100",           "#FFF3E0"),
+        }
+        rc, rbg = role_colors.get(self._state.current_role, (Colors.PRIMARY, Colors.PRIMARY_LIGHT))
+        role_badge = ctk.CTkFrame(right, fg_color=rbg, corner_radius=8,
+                                   border_width=1, border_color=rc)
+        role_badge.pack(side="right", pady=12)
+        ctk.CTkLabel(
+            role_badge, text=f"  {self._state.current_role}  ",
+            font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
+            text_color=rc,
+        ).pack(pady=2)
 
     def set_page(self, title: str, subtitle: str = ""):
-        self._title_var.set(title)
-        screen_map = {
-            "dashboard":  "Home",
-            "students":   "Home  /  Students",
-            "teachers":   "Home  /  Teachers",
-            "classes":    "Home  /  Classes",
-            "attendance": "Home  /  Attendance",
-            "marks":      "Home  /  Performance",
-            "timetable":  "Home  /  Timetable",
-            "reports":    "Home  /  Reports",
-        }
-        crumb = screen_map.get(title.lower(), f"Home  /  {title}")
-        self._sub_var.set(subtitle if subtitle else crumb)
-
-    def _tick(self):
-        now = datetime.now()
-        self._clock_lbl.configure(
-            text=now.strftime("%A, %d %b %Y   %I:%M %p")
-        )
-        self.after(30_000, self._tick)   # Refresh every 30 s
+        if self._title_lbl and self._title_lbl.winfo_exists():
+            self._title_lbl.configure(text=title)
+        if self._subtitle_lbl and self._subtitle_lbl.winfo_exists():
+            self._subtitle_lbl.configure(text=subtitle)

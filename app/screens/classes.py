@@ -1,6 +1,6 @@
 """
 app/screens/classes.py
-Class & Section Management – Admin view.
+Class & Section Management – Admin only. Blue & White theme.
 """
 
 import customtkinter as ctk
@@ -27,7 +27,7 @@ class ClassesScreen(ctk.CTkFrame):
             f"{len(self._state.classes)} classes registered | Grades 1–10"
         ).pack(side="left", fill="y")
         ctk.CTkButton(
-            toolbar, text="+  Add Class",
+            toolbar, text="＋  Add Class",
             height=36, corner_radius=8,
             font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
             fg_color=Colors.PRIMARY, hover_color=Colors.PRIMARY_DARK,
@@ -48,15 +48,15 @@ class ClassesScreen(ctk.CTkFrame):
         left.grid(row=0, column=0, sticky="nsew", padx=(0, Spacing.MD))
         left.pack_propagate(False)
 
-        list_head = ctk.CTkFrame(left, fg_color=Colors.SECONDARY, corner_radius=0, height=44)
+        list_head = ctk.CTkFrame(left, fg_color=Colors.PRIMARY, corner_radius=0, height=44)
         list_head.pack(fill="x")
         list_head.pack_propagate(False)
-        ctk.CTkLabel(list_head, text="  All Classes",
+        ctk.CTkLabel(list_head, text="  🏠  All Classes",
                      font=(Fonts.FAMILY, Fonts.SIZE_MD, Fonts.WEIGHT_BOLD),
                      text_color=Colors.TEXT_WHITE, anchor="w").pack(side="left", padx=12)
         ctk.CTkLabel(list_head, text=f"{len(self._state.classes)}",
                      font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
-                     text_color=Colors.ACCENT).pack(side="right", padx=12)
+                     text_color="#90CAF9").pack(side="right", padx=12)
 
         self._list_scroll = ctk.CTkScrollableFrame(left, fg_color="transparent", corner_radius=0)
         self._list_scroll.pack(fill="both", expand=True)
@@ -108,21 +108,21 @@ class ClassesScreen(ctk.CTkFrame):
 
         hl = ctk.CTkFrame(hdr, fg_color="transparent")
         hl.place(relx=0.03, rely=0.5, anchor="w")
-        ctk.CTkLabel(hl, text=f"🏫  {cls['name']}",
+        ctk.CTkLabel(hl, text=f"🏠  {cls['name']}",
                      font=(Fonts.FAMILY, Fonts.SIZE_2XL, Fonts.WEIGHT_BOLD),
                      text_color=Colors.TEXT_WHITE).pack(anchor="w")
         ctk.CTkLabel(hl, text=f"Grade {cls['grade']}  ·  Section {cls['section']}  ·  Room {cls['room']}",
                      font=(Fonts.FAMILY, Fonts.SIZE_SM),
-                     text_color=Colors.SIDEBAR_TEXT).pack(anchor="w", pady=(2, 0))
+                     text_color="#90CAF9").pack(anchor="w", pady=(2, 0))
 
         hr = ctk.CTkFrame(hdr, fg_color="transparent")
         hr.place(relx=0.97, rely=0.5, anchor="e")
         ctk.CTkLabel(hr, text=str(cls["students"]),
                      font=(Fonts.FAMILY, Fonts.SIZE_3XL, Fonts.WEIGHT_BOLD),
-                     text_color=Colors.ACCENT).pack()
+                     text_color="#90CAF9").pack()
         ctk.CTkLabel(hr, text="Students",
                      font=(Fonts.FAMILY, Fonts.SIZE_XS),
-                     text_color=Colors.SIDEBAR_TEXT).pack()
+                     text_color="#BBDEFB").pack()
 
         # Info grid
         info_grid = ctk.CTkFrame(scroll, fg_color="transparent")

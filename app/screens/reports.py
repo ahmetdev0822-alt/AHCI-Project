@@ -40,10 +40,10 @@ class ReportsScreen(ctk.CTkFrame):
         left.grid(row=0, column=0, sticky="nsew", padx=(0, Spacing.MD))
         left.pack_propagate(False)
 
-        lh = ctk.CTkFrame(left, fg_color=Colors.SECONDARY, corner_radius=0, height=44)
+        lh = ctk.CTkFrame(left, fg_color=Colors.PRIMARY, corner_radius=0, height=44)
         lh.pack(fill="x")
         lh.pack_propagate(False)
-        ctk.CTkLabel(lh, text="  Report Types",
+        ctk.CTkLabel(lh, text="  📋  Report Types",
                      font=(Fonts.FAMILY, Fonts.SIZE_MD, Fonts.WEIGHT_BOLD),
                      text_color=Colors.TEXT_WHITE, anchor="w").pack(side="left", padx=12)
 
@@ -162,7 +162,7 @@ class ReportsScreen(ctk.CTkFrame):
 
     def _draw_student_report(self):
         self._report_header("📋  Student Report Card",
-                             "Mid-Term Examination Results", Colors.SECONDARY)
+                             "Mid-Term Examination Results", Colors.PRIMARY)
         scroll = ctk.CTkScrollableFrame(self._preview, fg_color="transparent", corner_radius=0)
         scroll.pack(fill="both", expand=True, padx=16, pady=12)
 
@@ -208,7 +208,7 @@ class ReportsScreen(ctk.CTkFrame):
             return
 
         # Info card
-        info = ctk.CTkFrame(self._rc_frame, fg_color=Colors.SECONDARY,
+        info = ctk.CTkFrame(self._rc_frame, fg_color=Colors.PRIMARY,
                              corner_radius=8, height=60)
         info.pack(fill="x", pady=(0, 12))
         info.pack_propagate(False)
@@ -219,7 +219,7 @@ class ReportsScreen(ctk.CTkFrame):
                      text_color=Colors.TEXT_WHITE).pack(anchor="w")
         ctk.CTkLabel(il, text=f"Class: {student['class']}  ·  Roll: {student['roll_no']}  ·  {student['gender']}",
                      font=(Fonts.FAMILY, Fonts.SIZE_XS),
-                     text_color=Colors.SIDEBAR_TEXT).pack(anchor="w")
+                     text_color="#90CAF9").pack(anchor="w")
 
         # Marks table
         marks = [m for m in self._state.marks if m["student_id"] == sid]
@@ -253,7 +253,7 @@ class ReportsScreen(ctk.CTkFrame):
         if total_max:
             pct  = round((total_obt / total_max) * 100, 1)
             grade = "A+" if pct>=90 else "A" if pct>=80 else "B+" if pct>=70 else "B" if pct>=60 else "C" if pct>=50 else "F"
-            sumrow = ctk.CTkFrame(self._rc_frame, fg_color=Colors.SECONDARY,
+            sumrow = ctk.CTkFrame(self._rc_frame, fg_color=Colors.PRIMARY,
                                    corner_radius=8, height=44)
             sumrow.pack(fill="x", pady=(8, 0))
             sumrow.pack_propagate(False)
