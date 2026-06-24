@@ -80,7 +80,7 @@ class ClassesScreen(ctk.CTkFrame):
                       self._selected_class.get("id") == cls["id"])
             btn = ctk.CTkButton(
                 self._list_scroll,
-                text=f"  {cls['name']}\n  {cls['students']} students  ·  Room {cls['room']}",
+                text=f"  {cls['name']}\n  Room {cls['room']}",
                 anchor="w", height=54, corner_radius=8,
                 font=(Fonts.FAMILY, Fonts.SIZE_SM),
                 fg_color=Colors.PRIMARY if is_sel else "transparent",
@@ -120,7 +120,7 @@ class ClassesScreen(ctk.CTkFrame):
         ctk.CTkLabel(hr, text=str(cls["students"]),
                      font=(Fonts.FAMILY, Fonts.SIZE_3XL, Fonts.WEIGHT_BOLD),
                      text_color="#90CAF9").pack()
-        ctk.CTkLabel(hr, text="Students",
+        ctk.CTkLabel(hr, text="Total Strength",
                      font=(Fonts.FAMILY, Fonts.SIZE_XS),
                      text_color="#BBDEFB").pack()
 
@@ -148,55 +148,37 @@ class ClassesScreen(ctk.CTkFrame):
         # Action buttons
         act_row = ctk.CTkFrame(scroll, fg_color="transparent")
         act_row.pack(fill="x", pady=(0, Spacing.MD))
-        for text, color, cmd in [
-            ("View Students →",  Colors.PRIMARY,   lambda: self._navigate("students")),
-            ("Mark Attendance →", Colors.SUCCESS,  lambda: self._navigate("attendance")),
-            ("Edit Class",        Colors.SECONDARY, lambda: self._open_edit_form(cls)),
-        ]:
-            ctk.CTkButton(
-                act_row, text=text, height=36, corner_radius=8,
-                font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
-                fg_color=color, text_color=Colors.TEXT_WHITE,
-                command=cmd,
-            ).pack(side="left", padx=(0, Spacing.SM))
+        
+        def cmd_drill_down():
+            # Explicitly force-inject the active class selection filter straight into the shared runtime global state dict
+            if not hasattr(self._state, "filters"):
+                self._state.filters = {}
+            
+            self._state.filters["class"] = cls["name"]
+            
+            # Now trigger the screen viewport shift over to the students template screen layout
+            self._navigate("students")
 
-        # Students in this class
-        SectionHeader(scroll, f"Students in {cls['name']}",
-                      f"{cls['students']} enrolled students"
-                      ).pack(fill="x", pady=(0, Spacing.SM))
+        ctk.CTkButton(
+            act_row, text="View Students →", height=40, corner_radius=8,
+            font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
+            fg_color=Colors.PRIMARY, text_color=Colors.TEXT_WHITE,
+            command=cmd_drill_down,
+        ).pack(side="left", padx=(0, Spacing.SM))
 
-        stud_panel = ctk.CTkFrame(scroll, fg_color=Colors.BG_CARD, corner_radius=10,
-                                   border_width=1, border_color=Colors.BORDER)
-        stud_panel.pack(fill="x")
+        ctk.CTkButton(
+            act_row, text="View Attendance →", height=40, corner_radius=8,
+            font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
+            fg_color=Colors.SUCCESS, text_color=Colors.TEXT_WHITE,
+            command=lambda: self._navigate("attendance"),
+        ).pack(side="left", padx=(0, Spacing.SM))
 
-        students = self._state.get_students_by_class(cls["name"])
-        if not students:
-            ctk.CTkLabel(stud_panel, text="No students in this class yet.",
-                         text_color=Colors.TEXT_MUTED,
-                         font=(Fonts.FAMILY, Fonts.SIZE_SM)).pack(pady=20)
-        else:
-            # Header
-            hrow = ctk.CTkFrame(stud_panel, fg_color=Colors.BG_TABLE_HEAD,
-                                 corner_radius=0, height=36)
-            hrow.pack(fill="x")
-            hrow.pack_propagate(False)
-            for w, lbl in [(50, "Roll#"), (200, "Name"), (80, "Gender"), (100, "Status")]:
-                ctk.CTkLabel(hrow, text=lbl, width=w,
-                             font=(Fonts.FAMILY, Fonts.SIZE_XS, Fonts.WEIGHT_BOLD),
-                             text_color=Colors.TEXT_SECONDARY, anchor="w").pack(side="left", padx=(8,0))
-
-            for i, s in enumerate(students):
-                bg = Colors.BG_TABLE_ROW if i % 2 == 0 else Colors.BG_TABLE_ALT
-                row = ctk.CTkFrame(stud_panel, fg_color=bg, height=36, corner_radius=0)
-                row.pack(fill="x")
-                row.pack_propagate(False)
-                for w, val in [(50, s["roll_no"]), (200, s["name"]),
-                                (80, "Male" if s["gender"]=="M" else "Female")]:
-                    ctk.CTkLabel(row, text=val, width=w,
-                                 font=(Fonts.FAMILY, Fonts.SIZE_SM),
-                                 text_color=Colors.TEXT_PRIMARY, anchor="w"
-                                 ).pack(side="left", padx=(8, 0))
-                StatusBadge(row, s["status"]).pack(side="left", padx=(8, 0), pady=6)
+        ctk.CTkButton(
+            act_row, text="Edit Class Details", height=40, corner_radius=8,
+            font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
+            fg_color=Colors.SECONDARY, text_color=Colors.TEXT_WHITE,
+            command=lambda: self._open_edit_form(cls),
+        ).pack(side="left", padx=(0, Spacing.SM))
 
     def _open_add_form(self):
         self._toast("Class creation form – coming soon!", "info")
