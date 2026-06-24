@@ -13,7 +13,7 @@ from app.config import (
 
 class Sidebar(ctk.CTkFrame):
     """
-    Left sidebar.  Calls `Maps_fn(screen_key)` when a nav item is clicked.
+    Left sidebar. Calls `Maps_fn(screen_key)` when a nav item is clicked.
     """
 
     def __init__(self, parent, state, navigate_fn, logout_fn, **kwargs):
@@ -90,26 +90,25 @@ class Sidebar(ctk.CTkFrame):
             anchor="w",
         ).pack(anchor="w", padx=12, pady=(18, 6))
 
-        nav_items = NAV_ITEMS.get(self._state.current_role, [])
-        for item in nav_items:
-            self._add_nav_button(item["key"], item["label"], item["icon"])
-
-        # ── Spacer ────────────────────────────────────────────────────────────
-        spacer = ctk.CTkFrame(self, fg_color="transparent")
-        spacer.pack(fill="both", expand=True)
+        # ── Fixed Bottom Container (Pushed to bottom first) ──────────────────
+        bottom_anchor = ctk.CTkFrame(self, fg_color="transparent")
+        bottom_anchor.pack(side="bottom", fill="x", pady=(0, 5))
 
         # ── Thin divider ──────────────────────────────────────────────────────
-        ctk.CTkFrame(self, height=1, fg_color="#243D5E",
-                     corner_radius=0).pack(fill="x", padx=14)
+        ctk.CTkFrame(bottom_anchor, height=1, fg_color="#243D5E",
+                     corner_radius=0).pack(fill="x", padx=14, pady=(0, 10))
 
         # ── User Info + Logout ────────────────────────────────────────────────
-        user_area = ctk.CTkFrame(self, fg_color="transparent")
-        user_area.pack(fill="x", padx=10, pady=10)
+        user_area = ctk.CTkFrame(bottom_anchor, fg_color="transparent")
+        user_area.pack(fill="x", padx=10, pady=(0, 10))
+        user_area.columnconfigure(0, weight=0) # Avatar
+        user_area.columnconfigure(1, weight=1) # Text fields
+        user_area.columnconfigure(2, weight=0) # Logout action button
 
         # Avatar circle
         avatar = ctk.CTkFrame(user_area, width=38, height=38,
                                fg_color=Colors.PRIMARY, corner_radius=19)
-        avatar.pack(side="left")
+        avatar.grid(row=0, column=0, sticky="w")
         avatar.pack_propagate(False)
         initials = "".join(
             w[0].upper()
@@ -122,17 +121,20 @@ class Sidebar(ctk.CTkFrame):
         ).pack(expand=True)
 
         user_info = ctk.CTkFrame(user_area, fg_color="transparent")
-        user_info.pack(side="left", padx=(8, 0), fill="y")
+        user_info.grid(row=0, column=1, padx=8, sticky="ew")
         name = (self._state.current_user or {}).get("full_name", "User")
-        short_name = name if len(name) <= 18 else name[:16] + "…"
+        short_name = name if len(name) <= 14 else name[:12] + "…"
         ctk.CTkLabel(
             user_info, text=short_name,
             font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
             text_color=Colors.TEXT_WHITE, anchor="w",
         ).pack(anchor="w")
+        
+        desig = (self._state.current_user or {}).get("designation", "")
+        short_desig = desig if len(desig) <= 18 else desig[:16] + "…"
         ctk.CTkLabel(
             user_info,
-            text=(self._state.current_user or {}).get("designation", "")[:24],
+            text=short_desig,
             font=(Fonts.FAMILY, Fonts.SIZE_XS),
             text_color=Colors.SIDEBAR_TEXT, anchor="w",
         ).pack(anchor="w")
@@ -140,17 +142,17 @@ class Sidebar(ctk.CTkFrame):
         ctk.CTkButton(
             user_area,
             text="⏻",
-            width=30, height=30,
+            width=32, height=32,
             corner_radius=8,
-            font=(Fonts.FAMILY, 15),
+            font=(Fonts.FAMILY, 14),
             fg_color=Colors.SIDEBAR_HOVER_BG,
             text_color=Colors.DANGER,
             hover_color="#4A1E1E",
             command=self._logout_fn,
-        ).pack(side="right")
+        ).grid(row=0, column=2, sticky="e")
 
         # ── Demo Role Switcher ────────────────────────────────────────────────
-        demo_frame = ctk.CTkFrame(self, fg_color=Colors.SECONDARY_DARK,
+        demo_frame = ctk.CTkFrame(bottom_anchor, fg_color=Colors.SECONDARY_DARK,
                                   corner_radius=0, border_width=0)
         demo_frame.pack(fill="x")
 
@@ -158,10 +160,10 @@ class Sidebar(ctk.CTkFrame):
             demo_frame, text="DEMO — Switch Role",
             font=(Fonts.FAMILY, Fonts.SIZE_XS, Fonts.WEIGHT_BOLD),
             text_color=Colors.SIDEBAR_ICON,
-        ).pack(pady=(8, 4))
+        ).pack(pady=(6, 4))
 
         btn_row = ctk.CTkFrame(demo_frame, fg_color="transparent")
-        btn_row.pack(pady=(0, 10))
+        btn_row.pack(pady=(0, 6))
         for role, short, color in [
             (ROLE_ADMIN,   "Admin",   "#64B5F6"),
             (ROLE_TEACHER, "Teacher", "#80CBC4"),
@@ -178,6 +180,12 @@ class Sidebar(ctk.CTkFrame):
                 hover_color=Colors.PRIMARY_DARK,
                 command=lambda r=role: self._switch_role(r),
             ).pack(side="left", padx=5)
+
+        # ── Scrollable Navigation Items Area ─────────────────────────────────
+        # This expands to occupy all remaining middle space dynamically
+        nav_items = NAV_ITEMS.get(self._state.current_role, [])
+        for item in nav_items:
+            self._add_nav_button(item["key"], item["label"], item["icon"])
 
     def _add_nav_button(self, key: str, label: str, icon: str):
         is_active = self._state.active_screen == key
