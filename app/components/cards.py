@@ -106,8 +106,15 @@ class MetricCard(ctk.CTkFrame):
             self.configure(border_color=self._accent)
         def on_leave(e):
             self.configure(border_color=Colors.BORDER)
-        self.bind("<Enter>", on_enter)
-        self.bind("<Leave>", on_leave)
+            
+        # Recursively apply bindings to parent and all child widgets
+        self._apply_hover_bindings(self, on_enter, on_leave)
+
+    def _apply_hover_bindings(self, widget, on_enter, on_leave):
+        widget.bind("<Enter>", on_enter, add="+")
+        widget.bind("<Leave>", on_leave, add="+")
+        for child in widget.winfo_children():
+            self._apply_hover_bindings(child, on_enter, on_leave)
 
 
 class AlertCard(ctk.CTkFrame):
@@ -167,11 +174,14 @@ class QuickActionCard(ctk.CTkFrame):
                      font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
                      text_color=Colors.TEXT_PRIMARY).pack(pady=(8, 0))
 
-        self.bind("<Button-1>", self._on_click)
-        self.bind("<Enter>", self._on_enter)
-        self.bind("<Leave>", self._on_leave)
-        for child in self.winfo_children():
-            child.bind("<Button-1>", self._on_click)
+        self._bind_events(self)
+
+    def _bind_events(self, widget):
+        widget.bind("<Button-1>", self._on_click, add="+")
+        widget.bind("<Enter>", self._on_enter, add="+")
+        widget.bind("<Leave>", self._on_leave, add="+")
+        for child in widget.winfo_children():
+            self._bind_events(child)
 
     def _on_click(self, e=None):
         if self._cmd:
