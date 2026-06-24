@@ -16,7 +16,20 @@ class StudentsScreen(ctk.CTkFrame):
         self._state    = state
         self._navigate = navigate_fn
         self._toast    = toast_fn
+        
+        # ── Step 1: Background State Filter Check ─────────────────────────────
+        # Check if a filter was pushed from the classes window state session
+        if not hasattr(self._state, "filters"):
+            self._state.filters = {}
+        
+        initial_class_filter = self._state.filters.get("class", "All")
+        self._class_filter = ctk.StringVar(value=initial_class_filter)
+        
         self._build()
+        
+        # If an explicit class filter was set, apply the row subset filtration immediately on startup
+        if initial_class_filter != "All":
+            self._apply_filter()
 
     def _build(self):
         pad = Spacing.XL
@@ -35,7 +48,7 @@ class StudentsScreen(ctk.CTkFrame):
                      font=(Fonts.FAMILY, Fonts.SIZE_SM),
                      text_color=Colors.TEXT_SECONDARY).pack(side="left", padx=(24, 4))
         class_names = ["All"] + sorted({s["class"] for s in self._state.students})
-        self._class_filter = ctk.StringVar(value="All")
+        
         ctk.CTkOptionMenu(
             toolbar,
             values=class_names,
@@ -46,7 +59,7 @@ class StudentsScreen(ctk.CTkFrame):
             button_color=Colors.PRIMARY,
             button_hover_color=Colors.PRIMARY_DARK,
             text_color=Colors.TEXT_PRIMARY,
-            command=self._apply_filter,
+            command=self._on_dropdown_filter_changed,
         ).pack(side="left")
 
         # Search
@@ -104,10 +117,16 @@ class StudentsScreen(ctk.CTkFrame):
             {"key": "status",      "label": "Status",        "width": 80,  "align": "center"},
         ]
 
+        # Determine start rows subset dynamically based on setup filters
+        start_rows = self._state.students
+        initial_cls = self._class_filter.get()
+        if initial_cls != "All":
+            start_rows = [s for s in start_rows if s["class"] == initial_cls]
+
         self._table = DataTable(
             self,
             columns=columns,
-            rows=self._state.students,
+            rows=start_rows,
             on_edit=self._open_edit_form,
             on_delete=self._delete_student,
             on_view=self._view_student,
@@ -119,6 +138,11 @@ class StudentsScreen(ctk.CTkFrame):
         if row.get("status") == "Inactive":
             return "#FFF5F5"
         return None
+
+    def _on_dropdown_filter_changed(self, choice):
+        # Update the background dictionary tracking whenever manual updates occur
+        self._state.filters["class"] = choice
+        self._apply_filter()
 
     def _apply_filter(self, choice=None):
         cls    = self._class_filter.get()
@@ -151,7 +175,7 @@ class StudentsScreen(ctk.CTkFrame):
                     self._state.students[i] = data
                     break
             self._toast("✓  Student updated successfully!", "success")
-        self._table.refresh(self._state.students)
+        self._apply_filter()
 
     def _delete_student(self, row):
         ConfirmDialog(
@@ -163,7 +187,7 @@ class StudentsScreen(ctk.CTkFrame):
 
     def _confirm_delete(self, row):
         self._state.students = [s for s in self._state.students if s["id"] != row["id"]]
-        self._table.refresh(self._state.students)
+        self._apply_filter()
         self._toast(f"⚠  {row['name']} removed.", "warning")
 
 
