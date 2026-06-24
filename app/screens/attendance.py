@@ -206,17 +206,21 @@ class AttendanceScreen(ctk.CTkFrame):
                               corner_radius=0, height=36)
         thead.pack(fill="x")
         thead.pack_propagate(False)
-        cols = [(40, "#"), (60, "Roll"), (200, "Student Name"),
-                (100, "Prev. Att%"), (40, "")]  # spacer
-        if self._editable:
-            cols.append((300, "Mark Status"))
-        else:
-            cols.append((120, "Status"))
-        cols.append((80, "Overall"))
+        
+        # Absolute structural layouts mappings rules definitions 
+        cols = [
+            (50, " #"), 
+            (70, "Roll"), 
+            (240, "Student Name"),
+            (120, "Prev. Att%"), 
+            (310, "Mark Attendance Status" if self._editable else "Status"),
+            (100, "Overall Trend")
+        ]
+        
         for w, lbl in cols:
             ctk.CTkLabel(thead, text=lbl, width=w,
                          font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
-                         text_color=Colors.TEXT_HEADING, anchor="w").pack(side="left", padx=(8, 0))
+                         text_color=Colors.TEXT_HEADING, anchor="w").pack(side="left", padx=4)
 
         self._att_scroll = ctk.CTkScrollableFrame(list_panel, fg_color="transparent",
                                                    corner_radius=0)
@@ -263,40 +267,40 @@ class AttendanceScreen(ctk.CTkFrame):
             row.pack_propagate(False)
 
             # Row number
-            ctk.CTkLabel(row, text=str(i + 1), width=40,
+            ctk.CTkLabel(row, text=f" {i + 1}", width=50,
                          font=(Fonts.FAMILY, Fonts.SIZE_SM),
-                         text_color=Colors.TEXT_MUTED, anchor="w").pack(side="left", padx=(8, 0))
+                         text_color=Colors.TEXT_MUTED, anchor="w").pack(side="left", padx=4)
             # Roll
-            ctk.CTkLabel(row, text=student["roll_no"], width=60,
+            ctk.CTkLabel(row, text=student["roll_no"], width=70,
                          font=(Fonts.FAMILY, Fonts.SIZE_SM),
-                         text_color=Colors.TEXT_SECONDARY, anchor="w").pack(side="left")
-            # Name
-            name_frame = ctk.CTkFrame(row, fg_color="transparent", width=200)
-            name_frame.pack(side="left")
+                         text_color=Colors.TEXT_SECONDARY, anchor="w").pack(side="left", padx=4)
+            
+            # Name Frame Container
+            name_frame = ctk.CTkFrame(row, fg_color="transparent", width=240)
+            name_frame.pack(side="left", padx=4)
             name_frame.pack_propagate(False)
             name_color = Colors.DANGER if low_att else Colors.TEXT_PRIMARY
             ctk.CTkLabel(name_frame, text=student["name"],
                          font=(Fonts.FAMILY, Fonts.SIZE_SM,
                                Fonts.WEIGHT_BOLD if low_att else Fonts.WEIGHT_NORMAL),
-                         text_color=name_color, anchor="w").pack(anchor="w", padx=4, pady=2)
+                         text_color=name_color, anchor="w").pack(anchor="w", padx=2, pady=2)
             if low_att:
                 ctk.CTkLabel(name_frame, text="⚠ Low Attendance",
                              font=(Fonts.FAMILY, Fonts.SIZE_XS),
-                             text_color=Colors.DANGER, anchor="w").pack(anchor="w", padx=4)
+                             text_color=Colors.DANGER, anchor="w").pack(anchor="w", padx=2)
 
             # Previous att%
             pct_color = Colors.SUCCESS if att_pct >= 75 else Colors.DANGER
-            ctk.CTkLabel(row, text=f"{att_pct}%", width=100,
+            ctk.CTkLabel(row, text=f"{att_pct}%", width=120,
                          font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
-                         text_color=pct_color, anchor="w").pack(side="left")
-
-            # Spacer
-            ctk.CTkLabel(row, text="", width=40).pack(side="left")
+                         text_color=pct_color, anchor="w").pack(side="left", padx=4)
 
             if self._editable:
                 # Interactive buttons (Teacher only)
-                btn_frame = ctk.CTkFrame(row, fg_color="transparent", width=300)
-                btn_frame.pack(side="left")
+                btn_frame = ctk.CTkFrame(row, fg_color="transparent", width=310)
+                btn_frame.pack(side="left", padx=4)
+                btn_frame.pack_propagate(False)
+                
                 status_var = ctk.StringVar(value=existing.get(sid, "Present"))
                 self._row_vars[sid] = status_var
 
@@ -315,7 +319,7 @@ class AttendanceScreen(ctk.CTkFrame):
                     b = ctk.CTkButton(
                         btn_frame,
                         text=stat,
-                        width=66, height=28,
+                        width=68, height=28,
                         corner_radius=6,
                         font=(Fonts.FAMILY, Fonts.SIZE_XS, Fonts.WEIGHT_BOLD),
                         fg_color=color if is_sel else bgcol,
@@ -323,28 +327,32 @@ class AttendanceScreen(ctk.CTkFrame):
                         hover_color=color,
                         command=make_cmd(),
                     )
-                    b.pack(side="left", padx=2)
+                    b.pack(side="left", padx=2, pady=9)
 
                 # Overall badge
                 pct_badge_color = Colors.SUCCESS if att_pct >= 75 else Colors.DANGER
-                ctk.CTkLabel(row, text=f"{att_pct}%", width=80,
+                ctk.CTkLabel(row, text=f"{att_pct}%", width=100,
                              font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
-                             text_color=pct_badge_color, anchor="center").pack(side="left")
+                             text_color=pct_badge_color, anchor="w").pack(side="left", padx=4)
             else:
-                # Read-only status display
+                # Read-only status display (Admin layout framework context)
+                badge_container = ctk.CTkFrame(row, fg_color="transparent", width=310)
+                badge_container.pack(side="left", padx=4)
+                badge_container.pack_propagate(False)
+                
                 cur_status = existing.get(sid, "—")
                 if cur_status != "—":
-                    StatusBadge(row, cur_status).pack(side="left", pady=8, padx=4)
+                    StatusBadge(badge_container, cur_status).pack(side="left", pady=10)
                 else:
-                    ctk.CTkLabel(row, text="Not recorded",
+                    ctk.CTkLabel(badge_container, text="Not recorded",
                                  font=(Fonts.FAMILY, Fonts.SIZE_SM),
-                                 text_color=Colors.TEXT_MUTED).pack(side="left", padx=4)
+                                 text_color=Colors.TEXT_MUTED, anchor="w").pack(side="left", expand=True)
 
                 # Overall attendance
                 pct_badge_color = Colors.SUCCESS if att_pct >= 75 else Colors.DANGER
-                ctk.CTkLabel(row, text=f"{att_pct}%", width=80,
+                ctk.CTkLabel(row, text=f"{att_pct}%", width=100,
                              font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
-                             text_color=pct_badge_color, anchor="w").pack(side="left")
+                             text_color=pct_badge_color, anchor="w").pack(side="left", padx=4)
 
                 # Track for stats even in view mode
                 self._row_vars[sid] = ctk.StringVar(value=cur_status if cur_status != "—" else "Absent")

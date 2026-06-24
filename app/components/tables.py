@@ -85,10 +85,11 @@ class DataTable(ctk.CTkFrame):
                                   border_color=Colors.BORDER)
         container.pack(fill="both", expand=True)
 
-        # Header
+        # Header Frame Container
         self._header_frame = ctk.CTkFrame(container, fg_color=Colors.BG_TABLE_HEAD,
-                                           corner_radius=0)
+                                           corner_radius=0, height=TABLE_ROW_HEIGHT)
         self._header_frame.pack(fill="x")
+        self._header_frame.pack_propagate(False)
         self._draw_header()
 
         # Scrollable body
@@ -102,10 +103,11 @@ class DataTable(ctk.CTkFrame):
         for w in self._header_frame.winfo_children():
             w.destroy()
 
-        for col in self._columns:
+        # Synchronized padding offsets handling grid system rules
+        for idx, col in enumerate(self._columns):
             btn = ctk.CTkButton(
                 self._header_frame,
-                text=col["label"],
+                text=f"  {col['label']}",
                 font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
                 text_color=Colors.TEXT_HEADING,
                 fg_color="transparent",
@@ -116,15 +118,16 @@ class DataTable(ctk.CTkFrame):
                 corner_radius=0,
                 command=lambda k=col["key"]: self._sort_by(k),
             )
-            btn.pack(side="left")
+            btn.pack(side="left", padx=2)
 
         if self._show_actions:
             ctk.CTkLabel(
                 self._header_frame, text="Actions",
                 font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
                 text_color=Colors.TEXT_HEADING, width=130,
+                height=TABLE_ROW_HEIGHT,
                 anchor="center",
-            ).pack(side="left")
+            ).pack(side="left", padx=2)
 
     def _draw_rows(self):
         for w in self._scroll.winfo_children():
@@ -157,51 +160,55 @@ class DataTable(ctk.CTkFrame):
 
             for col in self._columns:
                 val = str(row.get(col["key"], ""))
+                # Prefixed space for padding data boundaries synchronization
                 lbl = ctk.CTkLabel(
-                    row_frame, text=val,
+                    row_frame, text=f"  {val}",
                     font=(Fonts.FAMILY, Fonts.SIZE_SM),
                     text_color=Colors.TEXT_PRIMARY,
                     anchor=col.get("align", "w"),
                     width=col["width"],
+                    height=TABLE_ROW_HEIGHT - 2
                 )
-                lbl.pack(side="left", padx=(Spacing.SM, 0))
+                lbl.pack(side="left", padx=2)
 
             if self._show_actions:
                 act_frame = ctk.CTkFrame(row_frame, fg_color="transparent",
-                                          width=130)
-                act_frame.pack(side="left")
+                                          width=130, height=TABLE_ROW_HEIGHT - 2)
+                act_frame.pack(side="left", padx=2)
                 act_frame.pack_propagate(False)
 
                 captured = dict(row)
+                
+                # Balanced visual spacing mapping
                 if self._on_view:
                     ctk.CTkButton(
-                        act_frame, text="View", width=36, height=26,
+                        act_frame, text="View", width=36, height=24,
                         corner_radius=6,
                         font=(Fonts.FAMILY, Fonts.SIZE_XS, Fonts.WEIGHT_BOLD),
                         fg_color=Colors.INFO_BG, text_color=Colors.INFO,
                         hover_color=Colors.INFO,
                         command=lambda r=captured: self._safe_call(self._on_view, r),
-                    ).pack(side="left", padx=(4, 2))
+                    ).pack(side="left", padx=2, pady=6)
 
                 if self._on_edit:
                     ctk.CTkButton(
-                        act_frame, text="Edit", width=36, height=26,
+                        act_frame, text="Edit", width=36, height=24,
                         corner_radius=6,
                         font=(Fonts.FAMILY, Fonts.SIZE_XS, Fonts.WEIGHT_BOLD),
                         fg_color=Colors.PRIMARY_LIGHT, text_color=Colors.PRIMARY,
                         hover_color=Colors.PRIMARY,
                         command=lambda r=captured: self._safe_call(self._on_edit, r),
-                    ).pack(side="left", padx=2)
+                    ).pack(side="left", padx=2, pady=6)
 
                 if self._on_delete:
                     ctk.CTkButton(
-                        act_frame, text="Del", width=34, height=26,
+                        act_frame, text="Del", width=34, height=24,
                         corner_radius=6,
                         font=(Fonts.FAMILY, Fonts.SIZE_XS, Fonts.WEIGHT_BOLD),
                         fg_color=Colors.DANGER_BG, text_color=Colors.DANGER,
                         hover_color=Colors.DANGER,
                         command=lambda r=captured: self._safe_call(self._on_delete, r),
-                    ).pack(side="left", padx=(2, 4))
+                    ).pack(side="left", padx=2, pady=6)
 
             # Hover highlight
             def _enter(e, f=row_frame, orig=bg):

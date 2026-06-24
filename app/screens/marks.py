@@ -139,11 +139,19 @@ class MarksScreen(ctk.CTkFrame):
                               corner_radius=0, height=36)
         thead.pack(fill="x")
         thead.pack_propagate(False)
-        cols = [(40, "#"), (60, "Roll"), (220, "Student Name"), (120, "Marks Obtained"), (80, "Grade"), (80, "% Score")]
+        
+        cols = [
+            (50, " #"), 
+            (70, "Roll"), 
+            (240, "Student Name"), 
+            (140, "Marks Obtained"), 
+            (100, "Grade"), 
+            (100, "% Score")
+        ]
         for w, lbl in cols:
             ctk.CTkLabel(thead, text=lbl, width=w,
                          font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
-                         text_color=Colors.TEXT_HEADING, anchor="w").pack(side="left", padx=(8, 0))
+                         text_color=Colors.TEXT_HEADING, anchor="w").pack(side="left", padx=4)
 
         self._marks_scroll = ctk.CTkScrollableFrame(marks_panel, fg_color="transparent",
                                                      corner_radius=0)
@@ -173,11 +181,6 @@ class MarksScreen(ctk.CTkFrame):
         self._sel_subject    = self._subject_var.get()
         self._sel_assessment = self._assessment_var.get()
 
-        # Update subject list
-        subjects = SUBJECTS.get(self._sel_class, ["Mathematics"])
-        self._subject_var.set(subjects[0] if subjects else "Mathematics")
-        self._sel_subject = self._subject_var.get()
-
         students = self._state.get_students_by_class(self._sel_class)
 
         existing = {
@@ -205,52 +208,56 @@ class MarksScreen(ctk.CTkFrame):
             row.pack(fill="x")
             row.pack_propagate(False)
 
-            ctk.CTkLabel(row, text=str(i + 1), width=40,
+            # Realigned packing metrics with pixel-perfect spacing anchors
+            ctk.CTkLabel(row, text=f" {i + 1}", width=50,
                          font=(Fonts.FAMILY, Fonts.SIZE_SM),
-                         text_color=Colors.TEXT_MUTED, anchor="w").pack(side="left", padx=(8, 0))
-            ctk.CTkLabel(row, text=student["roll_no"], width=60,
+                         text_color=Colors.TEXT_MUTED, anchor="w").pack(side="left", padx=4)
+            ctk.CTkLabel(row, text=student["roll_no"], width=70,
                          font=(Fonts.FAMILY, Fonts.SIZE_SM),
-                         text_color=Colors.TEXT_SECONDARY, anchor="w").pack(side="left")
-            ctk.CTkLabel(row, text=student["name"], width=220,
+                         text_color=Colors.TEXT_SECONDARY, anchor="w").pack(side="left", padx=4)
+            ctk.CTkLabel(row, text=student["name"], width=240,
                          font=(Fonts.FAMILY, Fonts.SIZE_SM),
-                         text_color=Colors.TEXT_PRIMARY, anchor="w").pack(side="left")
+                         text_color=Colors.TEXT_PRIMARY, anchor="w").pack(side="left", padx=4)
 
             entry_var = ctk.StringVar(value=str(existing.get(sid, "")))
             self._mark_entries[sid] = entry_var
 
+            # Bound container width block to guarantee uniform alignment mapping 
+            input_container = ctk.CTkFrame(row, fg_color="transparent", width=140)
+            input_container.pack(side="left", padx=4)
+            input_container.pack_propagate(False)
+
             if self._editable:
-                # Editable entry (Teacher)
                 entry = ctk.CTkEntry(
-                    row, textvariable=entry_var,
-                    width=100, height=28, corner_radius=6,
+                    input_container, textvariable=entry_var,
+                    width=90, height=28, corner_radius=6,
                     font=(Fonts.FAMILY, Fonts.SIZE_SM),
                     fg_color=Colors.BG_INPUT, border_color=Colors.BORDER,
                     text_color=Colors.TEXT_PRIMARY,
                     placeholder_text="0–100",
                 )
-                entry.pack(side="left", padx=4)
+                entry.pack(side="left", pady=8)
             else:
-                # Read-only label (Admin)
                 score_text = str(existing.get(sid, "—"))
                 try:
                     total = int(self._total_marks.get())
                     obt   = int(score_text)
-                    score_display = f"{obt}/{total}"
+                    score_display = f"{obt} / {total}"
                 except Exception:
                     score_display = score_text if score_text else "—"
-                ctk.CTkLabel(row, text=score_display, width=100,
+                ctk.CTkLabel(input_container, text=score_display,
                              font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
-                             text_color=Colors.TEXT_PRIMARY, anchor="w").pack(side="left", padx=4)
+                             text_color=Colors.TEXT_PRIMARY, anchor="w").pack(side="left", pady=8)
 
-            # Grade / pct – live or static
-            grade_lbl = ctk.CTkLabel(row, text="—", width=80,
+            # Grade / pct – live or static metrics
+            grade_lbl = ctk.CTkLabel(row, text="—", width=100,
                                       font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
                                       text_color=Colors.TEXT_MUTED, anchor="w")
-            grade_lbl.pack(side="left")
-            pct_lbl = ctk.CTkLabel(row, text="—", width=80,
+            grade_lbl.pack(side="left", padx=4)
+            pct_lbl = ctk.CTkLabel(row, text="—", width=100,
                                     font=(Fonts.FAMILY, Fonts.SIZE_SM),
                                     text_color=Colors.TEXT_MUTED, anchor="w")
-            pct_lbl.pack(side="left")
+            pct_lbl.pack(side="left", padx=4)
 
             def update_row_grade(sv=entry_var, gl=grade_lbl, pl=pct_lbl):
                 try:
