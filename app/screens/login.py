@@ -18,6 +18,7 @@ class LoginScreen(ctk.CTkFrame):
         self._on_success = on_login_success
         self._error_var  = ctk.StringVar()
         self._role_var   = ctk.StringVar(value=ROLE_ADMIN)
+        self._show_pass_var = ctk.BooleanVar(value=False)
         self._build()
 
     def _build(self):
@@ -161,6 +162,19 @@ class LoginScreen(ctk.CTkFrame):
         self._password_entry = self._make_entry(inner, "Enter your password", True)
         self._password_entry.bind("<Return>", lambda e: self._attempt_login())
 
+        # Show Password Toggle
+        self._show_pass_btn = ctk.CTkCheckBox(
+            inner, text="Show Password",
+            variable=self._show_pass_var,
+            onvalue=True, offvalue=False,
+            font=(Fonts.FAMILY, Fonts.SIZE_XS),
+            text_color=Colors.TEXT_SECONDARY,
+            fg_color=Colors.PRIMARY,
+            hover_color=Colors.PRIMARY_DARK,
+            command=self._toggle_password_visibility,
+        )
+        self._show_pass_btn.pack(anchor="w", pady=(0, 10))
+
         # Error message
         self._error_lbl = ctk.CTkLabel(
             inner, textvariable=self._error_var,
@@ -226,6 +240,12 @@ class LoginScreen(ctk.CTkFrame):
         entry.bind("<FocusOut>", lambda e: entry.configure(border_color=Colors.BORDER))
         return entry
 
+    def _toggle_password_visibility(self):
+        if self._show_pass_var.get():
+            self._password_entry.configure(show="")
+        else:
+            self._password_entry.configure(show="●")
+
     def _prefill(self):
         role = self._role_var.get()
         user = DEMO_USERS.get(role, {})
@@ -233,6 +253,8 @@ class LoginScreen(ctk.CTkFrame):
         self._password_entry.delete(0, "end")
         self._username_entry.insert(0, user.get("username", ""))
         self._password_entry.insert(0, user.get("password", ""))
+        self._show_pass_var.set(False)
+        self._password_entry.configure(show="●")
         self._error_var.set("")
 
     def _attempt_login(self):
