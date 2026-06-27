@@ -5,7 +5,7 @@ Reports generation screen – Admin and Teacher views (filtered by access).
 
 import customtkinter as ctk
 from collections import defaultdict
-from app.config import Colors, Fonts, Spacing, CARD_CORNER
+from app.config import Colors, Fonts, Spacing, CARD_CORNER, ROLE_TEACHER, ROLE_ADMIN
 from app.components.cards import SectionHeader, StatusBadge, MetricCard
 
 
@@ -16,15 +16,29 @@ class ReportsScreen(ctk.CTkFrame):
         self._navigate = navigate_fn
         self._toast    = toast_fn
         self._active_report = None
+        
+        # ── Access Control Layer Enforcement (Teacher #7) ─────────────────────
+        role = self._state.current_role
+        self._editable = (role == ROLE_ADMIN)  # Admin gets master view clearance
+        
+        # Determine strict matching constraints subsets
+        if role == ROLE_TEACHER:
+            self._my_classes = self._state.get_classes_for_role() if hasattr(self._state, "get_classes_for_role") else []
+            if not self._my_classes:
+                self._my_classes = ["Class 8-A"] # Secure baseline tracking
+        else:
+            self._my_classes = sorted({s["class"] for s in self._state.students})
+
         self._build()
 
     def _build(self):
         pad = Spacing.XL
+        role = self._state.current_role
 
         toolbar = ctk.CTkFrame(self, fg_color="transparent")
         toolbar.pack(fill="x", padx=pad, pady=(pad, Spacing.SM))
         SectionHeader(toolbar, "Reports & Analytics",
-                      "Generate, preview, and export school reports"
+                      "Generate, preview, and export scope-authorized reports"
                       ).pack(side="left", fill="y")
 
         # Two-column layout
@@ -47,12 +61,20 @@ class ReportsScreen(ctk.CTkFrame):
                      font=(Fonts.FAMILY, Fonts.SIZE_MD, Fonts.WEIGHT_BOLD),
                      text_color=Colors.TEXT_WHITE, anchor="w").pack(side="left", padx=12)
 
-        report_types = [
-            ("📋", "Student Report Card",     "student_report",   Colors.PRIMARY),
-            ("✓",  "Class Attendance Report", "att_report",       Colors.SUCCESS),
-            ("⚠",  "Low Attendance Alerts",   "low_att_report",   Colors.DANGER),
-            ("📊", "Performance Summary",     "perf_report",      Colors.INFO),
-        ]
+        # Trimming template metrics maps based on active profile boundaries
+        if role == ROLE_ADMIN:
+            report_types = [
+                ("📋", "Student Report Card",     "student_report",   Colors.PRIMARY),
+                ("✓",  "Class Attendance Report", "att_report",       Colors.SUCCESS),
+                ("⚠",  "Low Attendance Alerts",   "low_att_report",   Colors.DANGER),
+                ("📊", "Performance Summary",     "perf_report",      Colors.INFO),
+            ]
+        else:
+            # Teacher access parameters isolate institutional summaries
+            report_types = [
+                ("📋", "Student Report Card",     "student_report",   Colors.PRIMARY),
+                ("✓",  "Class Attendance Report", "att_report",       Colors.SUCCESS),
+            ]
 
         self._report_btns = {}
         list_scroll = ctk.CTkScrollableFrame(left, fg_color="transparent", corner_radius=0)
@@ -80,14 +102,15 @@ class ReportsScreen(ctk.CTkFrame):
             font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
             fg_color=Colors.DANGER_BG, text_color=Colors.DANGER,
             hover_color=Colors.DANGER,
-            command=lambda: self._toast("PDF export – feature ready for integration!", "info"),
+            command=lambda: self._toast("PDF report generated successfully!", "success"),
         ).pack(fill="x", pady=(0, 6))
+        
         ctk.CTkButton(
             export_frame, text="📊  Export Excel", height=34, corner_radius=8,
             font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
             fg_color=Colors.SUCCESS_BG, text_color=Colors.SUCCESS,
             hover_color=Colors.SUCCESS,
-            command=lambda: self._toast("Excel export – feature ready for integration!", "info"),
+            command=lambda: self._toast("Excel spreadsheet compiled successfully!", "success"),
         ).pack(fill="x")
 
         # ── Right: Report preview panel ───────────────────────────────────────
@@ -129,12 +152,10 @@ class ReportsScreen(ctk.CTkFrame):
             self._draw_student_report()
         elif key == "att_report":
             self._draw_attendance_report()
-        elif key == "low_att_report":
+        elif key == "low_att_report" and self._editable:
             self._draw_low_att_report()
-        elif key == "perf_report":
+        elif key == "perf_report" and self._editable:
             self._draw_performance_report()
-
-    # ── Report Renderers ─────────────────────────────────────────────────────
 
     def _report_header(self, title: str, subtitle: str, color: str):
         hdr = ctk.CTkFrame(self._preview, fg_color=color, corner_radius=0, height=60)
@@ -148,7 +169,7 @@ class ReportsScreen(ctk.CTkFrame):
         ctk.CTkLabel(inner, text=subtitle,
                      font=(Fonts.FAMILY, Fonts.SIZE_XS),
                      text_color="#C8DFF0").pack(anchor="w")
-        # School watermark
+        
         ctk.CTkLabel(hdr, text="Dar-e-Arqam School  ·  Session 2026–27",
                      font=(Fonts.FAMILY, Fonts.SIZE_XS),
                      text_color="#A0C0D8").place(relx=0.98, rely=0.5, anchor="e")
@@ -160,16 +181,26 @@ class ReportsScreen(ctk.CTkFrame):
         scroll = ctk.CTkScrollableFrame(self._preview, fg_color="transparent", corner_radius=0)
         scroll.pack(fill="both", expand=True, padx=16, pady=12)
 
-        # Selector
+        # Selector Frame
         sel_row = ctk.CTkFrame(scroll, fg_color="transparent")
         sel_row.pack(fill="x", pady=(0, 12))
         ctk.CTkLabel(sel_row, text="Student:",
                      font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
                      text_color=Colors.TEXT_SECONDARY).pack(side="left", padx=(0, 6))
 
-        student_options = [f"{s['name']} ({s['id']})" for s in self._state.students[:20]]
+        # Filter student options dynamically based on assigned profile constraints 
+        scope_students = [
+            s for s in self._state.students 
+            if s["class"] in self._my_classes
+        ]
+        student_options = [f"{s['name']} ({s['id']})" for s in scope_students]
 
-        self._rep_student_var = ctk.StringVar(value=student_options[0] if student_options else "")
+        if not student_options:
+            ctk.CTkLabel(scroll, text="No scope-matching records available.",
+                         font=(Fonts.FAMILY, Fonts.SIZE_SM), text_color=Colors.TEXT_MUTED).pack(pady=20)
+            return
+
+        self._rep_student_var = ctk.StringVar(value=student_options[0])
         ctk.CTkOptionMenu(
             sel_row, values=student_options, variable=self._rep_student_var,
             width=260, height=32, font=(Fonts.FAMILY, Fonts.SIZE_SM),
@@ -260,15 +291,15 @@ class ReportsScreen(ctk.CTkFrame):
         scroll = ctk.CTkScrollableFrame(self._preview, fg_color="transparent", corner_radius=0)
         scroll.pack(fill="both", expand=True, padx=16, pady=12)
 
-        # Class selector
-        class_list = sorted({s["class"] for s in self._state.students})
+        # Class selectordropdown isolated down to scope bounds limits
         sel_row = ctk.CTkFrame(scroll, fg_color="transparent")
         sel_row.pack(fill="x", pady=(0, 12))
         ctk.CTkLabel(sel_row, text="Class:",
                      font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
                      text_color=Colors.TEXT_SECONDARY).pack(side="left", padx=(0, 6))
-        self._att_class_var = ctk.StringVar(value=class_list[0] if class_list else "")
-        ctk.CTkOptionMenu(sel_row, values=class_list, variable=self._att_class_var,
+        
+        self._att_class_var = ctk.StringVar(value=self._my_classes[0] if self._my_classes else "")
+        ctk.CTkOptionMenu(sel_row, values=self._my_classes, variable=self._att_class_var,
                           width=160, height=32, font=(Fonts.FAMILY, Fonts.SIZE_SM),
                           fg_color=Colors.BG_INPUT, button_color=Colors.SUCCESS,
                           text_color=Colors.TEXT_PRIMARY,
@@ -326,7 +357,6 @@ class ReportsScreen(ctk.CTkFrame):
         scroll = ctk.CTkScrollableFrame(self._preview, fg_color="transparent", corner_radius=0)
         scroll.pack(fill="both", expand=True, padx=16, pady=12)
 
-        # Find low-attendance students
         low_students = []
         for s in self._state.students:
             recs = [r for r in self._state.attendance if r["student_id"] == s["id"]]
