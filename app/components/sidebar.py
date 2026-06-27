@@ -1,7 +1,7 @@
 """
 app/components/sidebar.py
 Blue & White themed sidebar with role-aware navigation,
-active state, hover effects, and demo role switcher.
+active state, hover effects, and clear session logout.
 """
 
 import customtkinter as ctk
@@ -13,7 +13,7 @@ from app.config import (
 
 class Sidebar(ctk.CTkFrame):
     """
-    Left sidebar. Calls `Maps_fn(screen_key)` when a nav item is clicked.
+    Left sidebar. Calls `navigate_fn(screen_key)` when a nav item is clicked.
     """
 
     def __init__(self, parent, state, navigate_fn, logout_fn, **kwargs):
@@ -90,26 +90,34 @@ class Sidebar(ctk.CTkFrame):
             anchor="w",
         ).pack(anchor="w", padx=12, pady=(18, 6))
 
-        # ── Fixed Bottom Container (Pushed to bottom first) ──────────────────
+        # ── Scrollable Navigation Items Area ─────────────────────────────────
+        nav_container = ctk.CTkFrame(self, fg_color="transparent")
+        nav_container.pack(fill="both", expand=True)
+
+        nav_items = NAV_ITEMS.get(self._state.current_role, [])
+        for item in nav_items:
+            self._add_nav_button(nav_container, item["key"], item["label"], item["icon"])
+
+        # ── Fixed Bottom Container ──────────────────
         bottom_anchor = ctk.CTkFrame(self, fg_color="transparent")
-        bottom_anchor.pack(side="bottom", fill="x", pady=(0, 5))
+        bottom_anchor.pack(side="bottom", fill="x", pady=(0, 15))
 
-        # ── Thin divider ──────────────────────────────────────────────────────
+        # Divider
         ctk.CTkFrame(bottom_anchor, height=1, fg_color="#243D5E",
-                     corner_radius=0).pack(fill="x", padx=14, pady=(0, 10))
+                     corner_radius=0).pack(fill="x", padx=14, pady=(0, 12))
 
-        # ── User Info + Logout ────────────────────────────────────────────────
+        # User Profile Block Row
         user_area = ctk.CTkFrame(bottom_anchor, fg_color="transparent")
-        user_area.pack(fill="x", padx=10, pady=(0, 10))
+        user_area.pack(fill="x", padx=14, pady=(0, 12))
         user_area.columnconfigure(0, weight=0) # Avatar
-        user_area.columnconfigure(1, weight=1) # Text fields
-        user_area.columnconfigure(2, weight=0) # Logout action button
+        user_area.columnconfigure(1, weight=1) # Information Labels
 
         # Avatar circle
         avatar = ctk.CTkFrame(user_area, width=38, height=38,
                                fg_color=Colors.PRIMARY, corner_radius=19)
         avatar.grid(row=0, column=0, sticky="w")
         avatar.pack_propagate(False)
+        
         initials = "".join(
             w[0].upper()
             for w in (self._state.current_user or {}).get("full_name", "U").split()[:2]
@@ -120,10 +128,11 @@ class Sidebar(ctk.CTkFrame):
             text_color=Colors.TEXT_WHITE,
         ).pack(expand=True)
 
+        # Profile Labels
         user_info = ctk.CTkFrame(user_area, fg_color="transparent")
-        user_info.grid(row=0, column=1, padx=8, sticky="ew")
+        user_info.grid(row=0, column=1, padx=10, sticky="ew")
         name = (self._state.current_user or {}).get("full_name", "User")
-        short_name = name if len(name) <= 14 else name[:12] + "…"
+        short_name = name if len(name) <= 16 else name[:14] + "…"
         ctk.CTkLabel(
             user_info, text=short_name,
             font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
@@ -131,7 +140,7 @@ class Sidebar(ctk.CTkFrame):
         ).pack(anchor="w")
         
         desig = (self._state.current_user or {}).get("designation", "")
-        short_desig = desig if len(desig) <= 18 else desig[:16] + "…"
+        short_desig = desig if len(desig) <= 22 else desig[:20] + "…"
         ctk.CTkLabel(
             user_info,
             text=short_desig,
@@ -139,59 +148,25 @@ class Sidebar(ctk.CTkFrame):
             text_color=Colors.SIDEBAR_TEXT, anchor="w",
         ).pack(anchor="w")
 
-        ctk.CTkButton(
-            user_area,
-            text="⏻",
-            width=32, height=32,
+        # ── Fully Prominent White Logout Button ──────────────────────────────
+        logout_btn = ctk.CTkButton(
+            bottom_anchor,
+            text="🚪  Logout Session",
+            height=36,
             corner_radius=8,
-            font=(Fonts.FAMILY, 14),
-            fg_color=Colors.SIDEBAR_HOVER_BG,
-            text_color=Colors.DANGER,
-            hover_color="#4A1E1E",
+            font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
+            fg_color="#D32F2F",
+            text_color=Colors.TEXT_WHITE,
+            hover_color="#B71C1C",
             command=self._logout_fn,
-        ).grid(row=0, column=2, sticky="e")
+        )
+        logout_btn.pack(fill="x", padx=14)
 
-        # ── Demo Role Switcher ────────────────────────────────────────────────
-        demo_frame = ctk.CTkFrame(bottom_anchor, fg_color=Colors.SECONDARY_DARK,
-                                  corner_radius=0, border_width=0)
-        demo_frame.pack(fill="x")
-
-        ctk.CTkLabel(
-            demo_frame, text="DEMO — Switch Role",
-            font=(Fonts.FAMILY, Fonts.SIZE_XS, Fonts.WEIGHT_BOLD),
-            text_color=Colors.SIDEBAR_ICON,
-        ).pack(pady=(6, 4))
-
-        btn_row = ctk.CTkFrame(demo_frame, fg_color="transparent")
-        btn_row.pack(pady=(0, 6))
-        for role, short, color in [
-            (ROLE_ADMIN,   "Admin",   "#64B5F6"),
-            (ROLE_TEACHER, "Teacher", "#80CBC4"),
-        ]:
-            is_active = role == self._state.current_role
-            ctk.CTkButton(
-                btn_row,
-                text=short,
-                width=96, height=24,
-                corner_radius=12,
-                font=(Fonts.FAMILY, Fonts.SIZE_XS, Fonts.WEIGHT_BOLD),
-                fg_color=Colors.PRIMARY if is_active else "#243D5E",
-                text_color=Colors.TEXT_WHITE if is_active else color,
-                hover_color=Colors.PRIMARY_DARK,
-                command=lambda r=role: self._switch_role(r),
-            ).pack(side="left", padx=5)
-
-        # ── Scrollable Navigation Items Area ─────────────────────────────────
-        # This expands to occupy all remaining middle space dynamically
-        nav_items = NAV_ITEMS.get(self._state.current_role, [])
-        for item in nav_items:
-            self._add_nav_button(item["key"], item["label"], item["icon"])
-
-    def _add_nav_button(self, key: str, label: str, icon: str):
+    def _add_nav_button(self, container, key: str, label: str, icon: str):
         is_active = self._state.active_screen == key
 
         btn = ctk.CTkButton(
-            self,
+            container,
             text=f"  {icon}   {label}",
             anchor="w",
             height=40,
@@ -220,10 +195,3 @@ class Sidebar(ctk.CTkFrame):
                     text_color=Colors.SIDEBAR_TEXT,
                     font=(Fonts.FAMILY, Fonts.SIZE_MD, Fonts.WEIGHT_NORMAL),
                 )
-
-    def _switch_role(self, role: str):
-        """Switch demo role and trigger full re-login."""
-        from app.config import DEMO_USERS
-        user = DEMO_USERS[role]
-        self._state.login(role, user)
-        self.event_generate("<<RoleSwitch>>", when="tail")
