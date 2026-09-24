@@ -5,6 +5,7 @@ __pycache__/
 
 # Environments
 .venv/
+conda_env/
 venv/
 ENV/
 env/

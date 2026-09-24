@@ -73,10 +73,44 @@ class Colors:
     LEAVE_COLOR   = "#1565C0"
 
 
+def _detect_ui_font() -> str:
+    candidates = ["Segoe UI", "Inter", "Ubuntu", "Adwaita Sans", "DejaVu Sans", "Liberation Sans", "Cantarell", "Helvetica", "Arial"]
+    try:
+        import tkinter as _tk
+        import tkinter.font as _tkfont
+        _r = _tk.Tk()
+        _r.withdraw()
+        _avail = set(_tkfont.families(_r))
+        _r.destroy()
+        for c in candidates:
+            if c in _avail:
+                return c
+    except Exception:
+        pass
+    return "DejaVu Sans"
+
+
+def _detect_mono_font() -> str:
+    candidates = ["Consolas", "Adwaita Mono", "DejaVu Sans Mono", "Liberation Mono", "Hack", "monospace"]
+    try:
+        import tkinter as _tk
+        import tkinter.font as _tkfont
+        _r = _tk.Tk()
+        _r.withdraw()
+        _avail = set(_tkfont.families(_r))
+        _r.destroy()
+        for c in candidates:
+            if c in _avail:
+                return c
+    except Exception:
+        pass
+    return "monospace"
+
+
 # ─── Font Sizes ──────────────────────────────────────────────────────────────
 class Fonts:
-    FAMILY      = "Segoe UI"
-    FAMILY_MONO = "Consolas"
+    FAMILY      = _detect_ui_font()
+    FAMILY_MONO = _detect_mono_font()
 
     SIZE_XS   = 10
     SIZE_SM   = 11

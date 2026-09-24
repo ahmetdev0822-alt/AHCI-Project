@@ -4,6 +4,19 @@ EduTrack – Dar-e-Arqam School Management System
 Entry point. Manages the main window, navigation, and screen lifecycle.
 """
 
+import os
+import sys
+
+# ── Ensure native Tkinter/Tcl libraries and antialiased fonts are available on Linux ──
+_tk_lib_dir = os.path.expanduser("~/.local/opt/arch_tk/usr/lib")
+if os.path.exists(_tk_lib_dir):
+    os.environ.setdefault("TCL_LIBRARY", os.path.expanduser("~/.local/opt/arch_tk/usr/lib/tcl8.6"))
+    os.environ.setdefault("TK_LIBRARY", os.path.expanduser("~/.local/opt/arch_tk/usr/lib/tk8.6"))
+    _current_ld = os.environ.get("LD_LIBRARY_PATH", "")
+    if _tk_lib_dir not in _current_ld.split(":"):
+        os.environ["LD_LIBRARY_PATH"] = f"{_tk_lib_dir}:{_current_ld}".strip(":")
+        os.execv(sys.executable, [sys.executable] + sys.argv)
+
 import customtkinter as ctk
 from app.config import (
     APP_NAME, SCHOOL_NAME, WINDOW_SIZE, WINDOW_MIN_SIZE,
