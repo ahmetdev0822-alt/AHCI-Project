@@ -1,12 +1,14 @@
 """
 app/screens/teachers.py
 Teacher Management screen – Admin only. Blue & White theme.
+Full CRUD backed by local SQLite persistence layer with multi-state support.
 """
 
 import customtkinter as ctk
 from app.config import Colors, Fonts, Spacing, CARD_CORNER
 from app.components.cards import SectionHeader, StatusBadge
 from app.components.tables import DataTable
+from app.components.state_view import StateView, StateSwitchDemoBar
 
 
 class TeachersScreen(ctk.CTkFrame):
@@ -15,18 +17,35 @@ class TeachersScreen(ctk.CTkFrame):
         self._state    = state
         self._navigate = navigate_fn
         self._toast    = toast_fn
+        self._search_var = ctk.StringVar()
         self._build()
 
     def _build(self):
         pad = Spacing.XL
 
-        toolbar = ctk.CTkFrame(self, fg_color="transparent")
-        toolbar.pack(fill="x", padx=pad, pady=(pad, Spacing.SM))
-
+        top_row = ctk.CTkFrame(self, fg_color="transparent")
+        top_row.pack(fill="x", padx=pad, pady=(pad, 0))
         SectionHeader(
-            toolbar, "Teacher Management",
-            f"Total {len(self._state.teachers)} teachers registered"
+            top_row, "Teacher Management",
+            f"Total {len(self._state.teachers)} faculty members in SQLite registry",
         ).pack(side="left", fill="y")
+        StateSwitchDemoBar(top_row, on_switch_fn=self._on_state_switch).pack(side="right")
+
+        # Toolbar
+        toolbar = ctk.CTkFrame(self, fg_color="transparent")
+        toolbar.pack(fill="x", padx=pad, pady=(Spacing.SM, Spacing.SM))
+
+        search = ctk.CTkEntry(
+            toolbar,
+            textvariable=self._search_var,
+            placeholder_text="🔍  Search teacher name or subject...",
+            height=34, width=240, corner_radius=8,
+            font=(Fonts.FAMILY, Fonts.SIZE_SM),
+            fg_color=Colors.BG_INPUT, border_color=Colors.BORDER,
+            text_color=Colors.TEXT_PRIMARY,
+        )
+        search.pack(side="left")
+        self._search_var.trace_add("write", lambda *_: self._filter_table())
 
         ctk.CTkButton(
             toolbar, text="＋  Add Teacher",
@@ -37,8 +56,33 @@ class TeachersScreen(ctk.CTkFrame):
             command=self._open_add_form,
         ).pack(side="right")
 
+        # ── StateView Container ───────────────────────────────────────────────
+        self._state_view = StateView(
+            self,
+            on_retry=lambda: self._on_state_switch("content"),
+            on_action=self._open_add_form,
+        )
+        self._state_view.pack(fill="both", expand=True)
+
+        self._render_table_content(self._state_view.content_area)
+
+    def _on_state_switch(self, mode: str):
+        if mode == "content":
+            self._state_view.set_state("content")
+        elif mode == "empty":
+            self._state_view.set_state("empty", title="No Teachers Found", message="No active faculty members registered in the selected department.", action_text="＋ Add New Teacher")
+        elif mode == "loading":
+            self._state_view.set_state("loading", title="Fetching Faculty Directory...", message="Compiling teacher course assignments and homeroom links from SQLite.")
+        elif mode == "error":
+            self._state_view.set_state("error", title="Faculty Registry Lock", message="Failed to load faculty records from the local SQLite database.", error_details="ERR_SQLITE_TEACHERS_CORRUPT (Code 500)")
+        elif mode == "offline":
+            self._state_view.set_state("offline", title="Offline Faculty Records", message="Viewing offline teacher roster. All profile changes are cached permanently in SQLite.", action_text="Continue Editing")
+
+    def _render_table_content(self, parent):
+        pad = Spacing.XL
+
         # Stat chips
-        chips = ctk.CTkFrame(self, fg_color="transparent")
+        chips = ctk.CTkFrame(parent, fg_color="transparent")
         chips.pack(fill="x", padx=pad, pady=(0, Spacing.SM))
         total    = len(self._state.teachers)
         active   = sum(1 for t in self._state.teachers if t["status"]=="Active")
@@ -49,12 +93,9 @@ class TeachersScreen(ctk.CTkFrame):
             ("On Leave", on_leave, Colors.WARNING, Colors.WARNING_BG),
         ]
         for label, val, color, bg in chip_data:
-            chip = ctk.CTkFrame(chips, fg_color=bg, corner_radius=8,
-                                 border_width=1, border_color=color)
+            chip = ctk.CTkFrame(chips, fg_color=bg, corner_radius=8, border_width=1, border_color=color)
             chip.pack(side="left", padx=(0, Spacing.SM))
-            ctk.CTkLabel(chip, text=f"  {val}  {label}  ",
-                         font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
-                         text_color=color).pack(padx=4, pady=4)
+            ctk.CTkLabel(chip, text=f"  {val}  {label}  ", font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD), text_color=color).pack(padx=4, pady=4)
 
         columns = [
             {"key": "id",              "label": "ID",          "width": 60,  "align": "w"},
@@ -68,7 +109,7 @@ class TeachersScreen(ctk.CTkFrame):
         ]
 
         self._table = DataTable(
-            self,
+            parent,
             columns=columns,
             rows=self._state.teachers,
             on_edit=self._open_edit_form,
@@ -76,6 +117,17 @@ class TeachersScreen(ctk.CTkFrame):
             row_color_fn=lambda r: "#FFFBF0" if r.get("status") == "On Leave" else None,
         )
         self._table.pack(fill="both", expand=True, padx=pad, pady=(0, pad))
+
+    def _filter_table(self):
+        q = self._search_var.get().strip().lower()
+        if not q:
+            self._table.refresh(self._state.teachers)
+        else:
+            filtered = [
+                t for t in self._state.teachers
+                if q in t["name"].lower() or q in t.get("subject", "").lower() or q in t.get("class_teacher_of", "").lower()
+            ]
+            self._table.refresh(filtered)
 
     def _open_add_form(self):
         TeacherForm(self, self._state, None, self._on_save)
@@ -86,20 +138,17 @@ class TeachersScreen(ctk.CTkFrame):
     def _on_save(self, data: dict, is_new: bool):
         if is_new:
             data["id"] = f"T{len(self._state.teachers)+1:03d}"
-            self._state.teachers.append(data)
-            self._toast("✓  Teacher added successfully!", "success")
+            self._state.save_teacher(data)
+            self._toast("✓  Teacher added successfully to SQLite!", "success")
         else:
-            for i, t in enumerate(self._state.teachers):
-                if t["id"] == data["id"]:
-                    self._state.teachers[i] = data
-                    break
-            self._toast("✓  Teacher record updated!", "success")
-        self._table.refresh(self._state.teachers)
+            self._state.save_teacher(data)
+            self._toast("✓  Teacher record updated in SQLite!", "success")
+        self._filter_table()
 
     def _delete_teacher(self, row):
-        self._state.teachers = [t for t in self._state.teachers if t["id"] != row["id"]]
-        self._table.refresh(self._state.teachers)
-        self._toast(f"{row['name']} removed.", "warning")
+        self._state.delete_teacher(row["id"])
+        self._filter_table()
+        self._toast(f"{row['name']} removed from database.", "warning")
 
 
 class TeacherForm(ctk.CTkToplevel):
@@ -114,7 +163,6 @@ class TeacherForm(ctk.CTkToplevel):
         self.title(title)
         self.geometry("520x580")
         self.resizable(False, False)
-        # Attach to the application's toplevel and build UI first
         try:
             self.transient(parent.winfo_toplevel())
         except Exception:
@@ -122,18 +170,12 @@ class TeacherForm(ctk.CTkToplevel):
         self.configure(fg_color=Colors.BG_MAIN)
         self._build(title)
 
-        # Ensure the window is mapped before taking the grab to avoid
-        # "grab failed: window not viewable" on some platforms
         self.update_idletasks()
         try:
             self.wait_visibility()
-        except Exception:
-            pass
-        try:
             self.grab_set()
             self.focus_set()
         except Exception:
-            # If grab fails for any reason, continue without blocking
             pass
 
     def _build(self, title):
@@ -214,7 +256,8 @@ class TeacherForm(ctk.CTkToplevel):
 
     def _save(self):
         name = self._name.get().strip()
-        if not name:
+        subj = self._subject.get().strip()
+        if not name or not subj:
             return
         try:
             exp = int(self._exp.get().strip())
@@ -223,7 +266,7 @@ class TeacherForm(ctk.CTkToplevel):
         data = {
             "id":               self._data["id"] if self._data else "",
             "name":             name,
-            "subject":          self._subject.get().strip(),
+            "subject":          subj,
             "qualification":    self._qual.get().strip(),
             "phone":            self._phone.get().strip(),
             "email":            self._email.get().strip(),

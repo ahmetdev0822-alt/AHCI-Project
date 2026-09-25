@@ -1,21 +1,24 @@
 """
 app/screens/attendance.py
 Attendance Screen – Blue & White theme + strict RBAC:
-  - Admin:   VIEW ONLY  – buttons disabled, save hidden, banner shown
-  - Teacher: EDIT – mark attendance for their own class only
+  - Admin:   VIEW ONLY  – audit inspection, stats breakdown
+  - Teacher: EDIT – mark attendance, bulk actions with instant Undo
+  - Parent:  CHILD VIEW – 30-day chronological attendance log & stats
+Addresses CS3014 Section 2 (Bulk actions + Undo) and Section 10 (Multi-state views).
 """
 
 import customtkinter as ctk
 from datetime import date
 from app.config import (
     Colors, Fonts, Spacing, CARD_CORNER,
-    ROLE_ADMIN, ROLE_TEACHER,
+    ROLE_ADMIN, ROLE_TEACHER, ROLE_PARENT,
 )
 from app.components.cards import SectionHeader, StatusBadge, MetricCard
+from app.components.state_view import StateView, StateSwitchDemoBar
 
 
 class AttendanceScreen(ctk.CTkFrame):
-    """Bulk attendance interface with role-based access control."""
+    """Bulk attendance interface with role-based access control and inline undo."""
 
     STATUSES    = ["Present", "Absent", "Late", "Leave"]
     STATUS_COLORS = {
@@ -37,392 +40,359 @@ class AttendanceScreen(ctk.CTkFrame):
         self._navigate   = navigate_fn
         self._toast      = toast_fn
         self._row_vars:  dict[str, ctk.StringVar] = {}
+        self._row_frames: dict[str, ctk.CTkFrame] = {}
+        self._last_bulk_state: dict[str, str] = {}
         self._selected_date = date.today().isoformat()
+        self._search_var = ctk.StringVar()
 
         role = self._state.current_role
 
-        # ── Determine allowed classes ──────────────────────────────────────────
+        # Determine allowed classes
         if role == ROLE_TEACHER:
             my_classes = self._state.get_classes_for_role()
             self._selected_class = my_classes[0] if my_classes else "Class 8-A"
+        elif role == ROLE_PARENT:
+            child = self._state.get_linked_child()
+            self._selected_class = child.get("class", "Class 8-A") if child else "Class 8-A"
         else:  # Admin
             all_classes = sorted({s["class"] for s in self._state.students})
             self._selected_class = all_classes[0] if all_classes else "Class 8-A"
 
-        # ── Is editable? ───────────────────────────────────────────────────────
         self._editable = (role == ROLE_TEACHER)
-
         self._build()
 
     def _build(self):
         pad  = Spacing.XL
         role = self._state.current_role
 
-        # ── Read-Only Banner (Admin) ──────────────────────────────────────────
+        # Top Bar
+        top_row = ctk.CTkFrame(self, fg_color="transparent")
+        top_row.pack(fill="x", padx=pad, pady=(pad, 0))
+        SectionHeader(top_row, "Attendance Registry", "Real-time presence tracking and bulk class operations").pack(side="left", fill="y")
+        StateSwitchDemoBar(top_row, on_switch_fn=self._on_state_switch).pack(side="right")
+
+        # Read-Only Banner for Admin
         if not self._editable and role == ROLE_ADMIN:
-            banner_text = "🔒  Administrator View  –  You can view and print attendance, but cannot mark or edit it."
-            banner_color = Colors.INFO_BG
-            border_color = Colors.INFO
-            text_color   = Colors.INFO
+            banner = ctk.CTkFrame(self, fg_color=Colors.INFO_BG, corner_radius=8, border_width=1, border_color=Colors.INFO)
+            banner.pack(fill="x", padx=pad, pady=(Spacing.SM, 0))
+            ctk.CTkLabel(banner, text="🔒  Administrator View  –  Audit and print attendance records across all school sections.", font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD), text_color=Colors.INFO).pack(padx=16, pady=6)
 
-            banner = ctk.CTkFrame(self, fg_color=banner_color, corner_radius=8,
-                                   border_width=1, border_color=border_color)
-            banner.pack(fill="x", padx=pad, pady=(pad, 0))
-            ctk.CTkLabel(banner, text=banner_text,
-                         font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
-                         text_color=text_color).pack(padx=16, pady=8)
-
-        # ── Toolbar ───────────────────────────────────────────────────────────
+        # Toolbar
         toolbar = ctk.CTkFrame(self, fg_color="transparent")
-        toolbar.pack(fill="x", padx=pad, pady=(Spacing.MD if not self._editable else pad, Spacing.SM))
-        SectionHeader(toolbar, "Attendance",
-                      "Mark or view attendance by class and date"
-                      ).pack(side="left", fill="y")
+        toolbar.pack(fill="x", padx=pad, pady=(Spacing.SM, Spacing.SM))
 
         if self._editable:
             ctk.CTkButton(
                 toolbar, text="✓  All Present",
-                height=34, corner_radius=8, width=118,
+                height=34, corner_radius=8, width=120,
                 font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
                 fg_color=Colors.SUCCESS_BG, text_color=Colors.SUCCESS,
                 hover_color=Colors.SUCCESS,
                 command=lambda: self._bulk_set("Present"),
-            ).pack(side="right", padx=(4, 0))
+            ).pack(side="right", padx=(6, 0))
+
             ctk.CTkButton(
                 toolbar, text="✕  All Absent",
-                height=34, corner_radius=8, width=118,
+                height=34, corner_radius=8, width=120,
                 font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
                 fg_color=Colors.DANGER_BG, text_color=Colors.DANGER,
                 hover_color=Colors.DANGER,
                 command=lambda: self._bulk_set("Absent"),
-            ).pack(side="right", padx=(4, 0))
+            ).pack(side="right", padx=(6, 0))
+
+        # Search box
+        search_entry = ctk.CTkEntry(
+            toolbar,
+            textvariable=self._search_var,
+            placeholder_text="🔍  Filter student name...",
+            height=34, width=220, corner_radius=8,
+            font=(Fonts.FAMILY, Fonts.SIZE_SM),
+            fg_color=Colors.BG_INPUT, border_color=Colors.BORDER, text_color=Colors.TEXT_PRIMARY,
+        )
+        search_entry.pack(side="left")
+        self._search_var.trace_add("write", lambda *_: self._filter_rows())
 
         # ── Selector Bar ──────────────────────────────────────────────────────
-        sel_bar = ctk.CTkFrame(self, fg_color=Colors.BG_CARD, corner_radius=10,
-                                border_width=1, border_color=Colors.BORDER)
+        sel_bar = ctk.CTkFrame(self, fg_color=Colors.BG_CARD, corner_radius=10, border_width=1, border_color=Colors.BORDER)
         sel_bar.pack(fill="x", padx=pad, pady=(0, Spacing.MD))
         sel_inner = ctk.CTkFrame(sel_bar, fg_color="transparent")
         sel_inner.pack(fill="x", padx=Spacing.LG, pady=Spacing.MD)
 
-        # Class dropdown
-        ctk.CTkLabel(sel_inner, text="Class:",
-                     font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
-                     text_color=Colors.TEXT_SECONDARY).pack(side="left")
-
-        if role == ROLE_TEACHER:
-            class_list = self._state.get_classes_for_role()
+        if role == ROLE_PARENT:
+            child = self._state.get_linked_child()
+            cname = child.get("name", "Student") if child else "Fatima Bibi"
+            ctk.CTkLabel(sel_inner, text=f"Viewing Attendance For: {cname} ({self._selected_class})", font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD), text_color=Colors.PRIMARY).pack(side="left")
         else:
-            class_list = sorted({s["class"] for s in self._state.students})
+            ctk.CTkLabel(sel_inner, text="Class:", font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD), text_color=Colors.TEXT_SECONDARY).pack(side="left")
+            class_list = self._state.get_classes_for_role() if role == ROLE_TEACHER else sorted({s["class"] for s in self._state.students})
+            self._class_var = ctk.StringVar(value=self._selected_class)
+            ctk.CTkOptionMenu(
+                sel_inner, values=class_list, variable=self._class_var,
+                width=160, height=34, font=(Fonts.FAMILY, Fonts.SIZE_SM),
+                fg_color=Colors.BG_INPUT, button_color=Colors.PRIMARY, text_color=Colors.TEXT_PRIMARY,
+                command=self._on_class_change,
+            ).pack(side="left", padx=(8, 20))
 
-        self._class_var = ctk.StringVar(value=self._selected_class)
-        class_menu = ctk.CTkOptionMenu(
-            sel_inner, values=class_list, variable=self._class_var,
-            width=160, height=34, font=(Fonts.FAMILY, Fonts.SIZE_SM),
-            fg_color=Colors.BG_INPUT, button_color=Colors.PRIMARY,
-            text_color=Colors.TEXT_PRIMARY,
-            command=self._on_class_change,
-        )
-        class_menu.pack(side="left", padx=(8, 24))
+            ctk.CTkLabel(sel_inner, text="Date:", font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD), text_color=Colors.TEXT_SECONDARY).pack(side="left")
+            self._date_var = ctk.StringVar(value=self._selected_date)
+            ctk.CTkEntry(
+                sel_inner, textvariable=self._date_var, width=130, height=34, corner_radius=8,
+                font=(Fonts.FAMILY, Fonts.SIZE_SM), fg_color=Colors.BG_INPUT, border_color=Colors.BORDER, text_color=Colors.TEXT_PRIMARY,
+            ).pack(side="left", padx=(8, 0))
 
-        # Date
-        ctk.CTkLabel(sel_inner, text="Date:",
-                     font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
-                     text_color=Colors.TEXT_SECONDARY).pack(side="left")
-        self._date_var = ctk.StringVar(value=self._selected_date)
-        ctk.CTkEntry(
-            sel_inner, textvariable=self._date_var,
-            width=130, height=34, corner_radius=8,
-            font=(Fonts.FAMILY, Fonts.SIZE_SM),
-            fg_color=Colors.BG_INPUT, border_color=Colors.BORDER,
-            text_color=Colors.TEXT_PRIMARY,
-        ).pack(side="left", padx=(8, 0))
-        ctk.CTkLabel(sel_inner, text="(YYYY-MM-DD)",
-                     font=(Fonts.FAMILY, Fonts.SIZE_XS),
-                     text_color=Colors.TEXT_MUTED).pack(side="left", padx=(4, 0))
+            ctk.CTkButton(
+                sel_inner, text="Load", height=34, width=70, corner_radius=8,
+                font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
+                fg_color=Colors.SECONDARY, text_color=Colors.TEXT_WHITE,
+                command=self._load_attendance,
+            ).pack(side="left", padx=(12, 0))
 
-        ctk.CTkButton(
-            sel_inner, text="  Load  ",
-            height=34, width=80, corner_radius=8,
-            font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
-            fg_color=Colors.SECONDARY, text_color=Colors.TEXT_WHITE,
-            hover_color=Colors.SECONDARY_DARK,
-            command=self._load_attendance,
-        ).pack(side="left", padx=(16, 0))
-
-        # Save & Print buttons
         if self._editable:
             ctk.CTkButton(
-                sel_inner, text="💾  Save Attendance",
+                sel_inner, text="💾  Save to Database",
                 height=34, width=160, corner_radius=8,
                 font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
                 fg_color=Colors.PRIMARY, hover_color=Colors.PRIMARY_DARK,
                 text_color=Colors.TEXT_WHITE,
                 command=self._save_attendance,
             ).pack(side="right")
-        else:
-            # Admin: Print button only
+        elif role == ROLE_ADMIN:
             ctk.CTkButton(
-                sel_inner, text="🖨  Print Report",
-                height=34, width=140, corner_radius=8,
+                sel_inner, text="🖨  Print Sheet", height=34, width=120, corner_radius=8,
                 font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
                 fg_color=Colors.INFO_BG, text_color=Colors.INFO,
-                hover_color=Colors.INFO,
-                command=lambda: self._toast("Attendance report sent to printer!", "info"),
+                command=lambda: self._toast("Attendance sheet generated for printing.", "info"),
             ).pack(side="right")
 
-        # ── Live stats bar ─────────────────────────────────────────────────────
-        self._stats_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self._stats_frame.pack(fill="x", padx=pad, pady=(0, Spacing.MD))
+        # ── StateView Container ───────────────────────────────────────────────
+        self._state_view = StateView(
+            self,
+            on_retry=lambda: self._on_state_switch("content"),
+            on_action=lambda: self._navigate("dashboard"),
+        )
+        self._state_view.pack(fill="both", expand=True)
+
+        if role == ROLE_PARENT:
+            self._render_parent_attendance(self._state_view.content_area)
+        else:
+            self._render_table_scaffold(self._state_view.content_area)
+
+    def _on_state_switch(self, mode: str):
+        if mode == "content":
+            self._state_view.set_state("content")
+        elif mode == "empty":
+            self._state_view.set_state("empty", title="No Attendance Logs Found", message="No attendance entries recorded for this section on the selected date.", action_text="Mark Class Roster")
+        elif mode == "loading":
+            self._state_view.set_state("loading", title="Fetching Attendance Records...", message="Querying student roll call and percentage distributions from SQLite.")
+        elif mode == "error":
+            self._state_view.set_state("error", title="Attendance Sync Error", message="Failed to commit batch attendance update to the local database.", error_details="ERR_SQLITE_BATCH_TRANSACTION_FAILED (Code 503)")
+        elif mode == "offline":
+            self._state_view.set_state("offline", title="Offline Attendance Marking", message="Operating in offline mode. Bulk attendance edits are cached locally in SQLite.", action_text="Continue Offline")
+
+    def _render_table_scaffold(self, parent):
+        pad = Spacing.XL
+
+        # Stats Chips
+        self._stats_frame = ctk.CTkFrame(parent, fg_color="transparent")
+        self._stats_frame.pack(fill="x", padx=pad, pady=(0, Spacing.SM))
         self._stat_labels: dict[str, ctk.CTkLabel] = {}
         for key, label, color, bg in [
-            ("present", "Present",    Colors.SUCCESS, Colors.SUCCESS_BG),
-            ("absent",  "Absent",     Colors.DANGER,  Colors.DANGER_BG),
-            ("late",    "Late",       Colors.WARNING, Colors.WARNING_BG),
-            ("leave",   "Leave",      Colors.INFO,    Colors.INFO_BG),
-            ("pct",     "Attendance%",Colors.PRIMARY, Colors.PRIMARY_LIGHT),
+            ("present", "Present", Colors.SUCCESS, Colors.SUCCESS_BG),
+            ("absent",  "Absent",  Colors.DANGER,  Colors.DANGER_BG),
+            ("late",    "Late",    Colors.WARNING, Colors.WARNING_BG),
+            ("leave",   "Leave",   Colors.INFO,    Colors.INFO_BG),
         ]:
-            chip = ctk.CTkFrame(self._stats_frame, fg_color=bg, corner_radius=8,
-                                 border_width=1, border_color=color, height=46)
+            chip = ctk.CTkFrame(self._stats_frame, fg_color=bg, corner_radius=8, border_width=1, border_color=color)
             chip.pack(side="left", padx=(0, Spacing.SM))
-            chip.pack_propagate(False)
-            inner = ctk.CTkFrame(chip, fg_color="transparent")
-            inner.pack(expand=True, padx=14)
-            val_lbl = ctk.CTkLabel(inner, text="—",
-                                    font=(Fonts.FAMILY, Fonts.SIZE_XL, Fonts.WEIGHT_BOLD),
-                                    text_color=color)
-            val_lbl.pack(side="left")
-            ctk.CTkLabel(inner, text=f"  {label}",
-                         font=(Fonts.FAMILY, Fonts.SIZE_XS),
-                         text_color=color).pack(side="left")
-            self._stat_labels[key] = val_lbl
+            lbl = ctk.CTkLabel(chip, text=f"  {label}: 0  ", font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD), text_color=color)
+            lbl.pack(padx=8, pady=4)
+            self._stat_labels[key] = lbl
 
-        # ── Attendance List ────────────────────────────────────────────────────
-        list_panel = ctk.CTkFrame(self, fg_color=Colors.BG_CARD, corner_radius=10,
-                                   border_width=1, border_color=Colors.BORDER)
-        list_panel.pack(fill="both", expand=True, padx=pad, pady=(0, pad))
+        # Table Container
+        tbl = ctk.CTkFrame(parent, fg_color=Colors.BG_CARD, corner_radius=10, border_width=1, border_color=Colors.BORDER)
+        tbl.pack(fill="both", expand=True, padx=pad, pady=(0, pad))
 
-        # Table header
-        thead = ctk.CTkFrame(list_panel, fg_color=Colors.BG_TABLE_HEAD,
-                              corner_radius=0, height=36)
-        thead.pack(fill="x")
-        thead.pack_propagate(False)
-        
-        # Absolute structural layouts mappings rules definitions 
-        cols = [
-            (50, " #"), 
-            (70, "Roll"), 
-            (240, "Student Name"),
-            (120, "Prev. Att%"), 
-            (310, "Mark Attendance Status" if self._editable else "Status"),
-            (100, "Overall Trend")
+        # Header
+        h = ctk.CTkFrame(tbl, fg_color=Colors.BG_TABLE_HEAD, corner_radius=0, height=38)
+        h.pack(fill="x")
+        h.pack_propagate(False)
+
+        cols = [("#", 45), ("Roll No", 75), ("Student Name", 240), ("Attendance Status", 320), ("30-Day %", 100)]
+        for label, w in cols:
+            ctk.CTkLabel(h, text=label, width=w, font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD), text_color=Colors.TEXT_HEADING, anchor="w").pack(side="left", padx=10)
+
+        # Scrollable Rows
+        self._table_scroll = ctk.CTkScrollableFrame(tbl, fg_color="transparent", corner_radius=0)
+        self._table_scroll.pack(fill="both", expand=True)
+
+        self._populate_rows()
+
+    def _render_parent_attendance(self, parent):
+        pad = Spacing.XL
+        child = self._state.get_linked_child() or {"id": "S003", "name": "Fatima Bibi Chaudhry", "class": "Class 8-A"}
+        pct = self._state.compute_attendance_pct(child["id"])
+
+        # KPI Summary Cards
+        kpi_row = ctk.CTkFrame(parent, fg_color="transparent")
+        kpi_row.pack(fill="x", padx=pad, pady=(0, Spacing.LG))
+
+        child_records = [r for r in self._state.attendance if r["student_id"] == child["id"]]
+        pres = sum(1 for r in child_records if r["status"] == "Present")
+        absn = sum(1 for r in child_records if r["status"] == "Absent")
+        late = sum(1 for r in child_records if r["status"] == "Late")
+
+        kpis = [
+            ("Attendance Rate", f"{pct}%", Colors.SUCCESS if pct >= 85 else Colors.WARNING, "30-Day Overall Track"),
+            ("Present Days", f"{pres} Days", Colors.SUCCESS, "Attended lectures"),
+            ("Absent Days", f"{absn} Days", Colors.DANGER if absn > 2 else Colors.TEXT_MUTED, "Unexcused absences"),
+            ("Late Arrivals", f"{late} Days", Colors.WARNING, "Recorded late check-ins"),
         ]
-        
-        for w, lbl in cols:
-            ctk.CTkLabel(thead, text=lbl, width=w,
-                         font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
-                         text_color=Colors.TEXT_HEADING, anchor="w").pack(side="left", padx=4)
+        for col, (title, val, acc, sub) in enumerate(kpis):
+            kpi_row.columnconfigure(col, weight=1)
+            MetricCard(kpi_row, title=title, value=val, accent=acc, sub_label=sub).grid(row=0, column=col, padx=(0, Spacing.MD if col < 3 else 0), sticky="nsew")
 
-        self._att_scroll = ctk.CTkScrollableFrame(list_panel, fg_color="transparent",
-                                                   corner_radius=0)
-        self._att_scroll.pack(fill="both", expand=True)
-        self._load_attendance()
+        # Chronological Log Table
+        tbl = ctk.CTkFrame(parent, fg_color=Colors.BG_CARD, corner_radius=10, border_width=1, border_color=Colors.BORDER)
+        tbl.pack(fill="both", expand=True, padx=pad, pady=(0, pad))
 
-    def _load_attendance(self):
-        self._selected_class = self._class_var.get()
-        self._selected_date  = self._date_var.get().strip()
+        h = ctk.CTkFrame(tbl, fg_color=Colors.BG_TABLE_HEAD, corner_radius=0, height=38)
+        h.pack(fill="x")
+        h.pack_propagate(False)
 
-        students = self._state.get_students_by_class(self._selected_class)
+        ctk.CTkLabel(h, text="Date", width=140, font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD), text_color=Colors.TEXT_HEADING, anchor="w").pack(side="left", padx=12)
+        ctk.CTkLabel(h, text="Day", width=140, font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD), text_color=Colors.TEXT_HEADING, anchor="w").pack(side="left", padx=12)
+        ctk.CTkLabel(h, text="Status", width=140, font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD), text_color=Colors.TEXT_HEADING, anchor="w").pack(side="left", padx=12)
+        ctk.CTkLabel(h, text="Remarks / Verification", width=260, font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD), text_color=Colors.TEXT_HEADING, anchor="w").pack(side="left", padx=12)
 
-        for w in self._att_scroll.winfo_children():
+        scroll = ctk.CTkScrollableFrame(tbl, fg_color="transparent", corner_radius=0)
+        scroll.pack(fill="both", expand=True)
+
+        for idx, r in enumerate(child_records[:20]):
+            rf = ctk.CTkFrame(scroll, fg_color=Colors.BG_TABLE_ROW if idx % 2 == 0 else Colors.BG_TABLE_ALT, height=38)
+            rf.pack(fill="x")
+            rf.pack_propagate(False)
+
+            ctk.CTkLabel(rf, text=r["date"], width=140, font=(Fonts.FAMILY, Fonts.SIZE_SM), text_color=Colors.TEXT_PRIMARY, anchor="w").pack(side="left", padx=12)
+            ctk.CTkLabel(rf, text="Weekday", width=140, font=(Fonts.FAMILY, Fonts.SIZE_SM), text_color=Colors.TEXT_MUTED, anchor="w").pack(side="left", padx=12)
+            StatusBadge(rf, r["status"]).pack(side="left", padx=12)
+            ctk.CTkLabel(rf, text="Verified by Class Teacher" if r["status"]=="Present" else "Parent notified via SMS", width=260, font=(Fonts.FAMILY, Fonts.SIZE_XS), text_color=Colors.TEXT_MUTED, anchor="w").pack(side="left", padx=12)
+
+    def _populate_rows(self):
+        for w in self._table_scroll.winfo_children():
             w.destroy()
-        self._row_vars = {}
+        self._row_vars.clear()
+        self._row_frames.clear()
 
-        if not students:
-            ctk.CTkLabel(self._att_scroll, text="No students found.",
-                         font=(Fonts.FAMILY, Fonts.SIZE_MD),
-                         text_color=Colors.TEXT_MUTED).pack(pady=30)
-            return
+        students = [s for s in self._state.students if s["class"] == self._selected_class]
+        date_str = self._date_var.get()
 
-        existing = {
-            r["student_id"]: r["status"]
-            for r in self._state.attendance
-            if r["class"] == self._selected_class and r["date"] == self._selected_date
-        }
-
-        for i, student in enumerate(students):
+        for idx, student in enumerate(students):
             sid = student["id"]
-            all_recs = [r for r in self._state.attendance if r["student_id"] == sid]
-            if all_recs:
-                pres    = sum(1 for r in all_recs if r["status"] == "Present")
-                att_pct = round((pres / len(all_recs)) * 100, 1)
-            else:
-                att_pct = 100.0
-            low_att = att_pct < 75
+            # Find existing record
+            existing = next((r for r in self._state.attendance if r["student_id"] == sid and r["date"] == date_str), None)
+            init_status = existing["status"] if existing else "Present"
 
-            bg = Colors.DANGER_BG if low_att else (
-                Colors.BG_TABLE_ROW if i % 2 == 0 else Colors.BG_TABLE_ALT
-            )
-            row = ctk.CTkFrame(self._att_scroll, fg_color=bg, height=46, corner_radius=0)
-            row.pack(fill="x")
-            row.pack_propagate(False)
+            var = ctk.StringVar(value=init_status)
+            self._row_vars[sid] = var
 
-            # Row number
-            ctk.CTkLabel(row, text=f" {i + 1}", width=50,
-                         font=(Fonts.FAMILY, Fonts.SIZE_SM),
-                         text_color=Colors.TEXT_MUTED, anchor="w").pack(side="left", padx=4)
-            # Roll
-            ctk.CTkLabel(row, text=student["roll_no"], width=70,
-                         font=(Fonts.FAMILY, Fonts.SIZE_SM),
-                         text_color=Colors.TEXT_SECONDARY, anchor="w").pack(side="left", padx=4)
-            
-            # Name Frame Container
-            name_frame = ctk.CTkFrame(row, fg_color="transparent", width=240)
-            name_frame.pack(side="left", padx=4)
-            name_frame.pack_propagate(False)
-            name_color = Colors.DANGER if low_att else Colors.TEXT_PRIMARY
-            ctk.CTkLabel(name_frame, text=student["name"],
-                         font=(Fonts.FAMILY, Fonts.SIZE_SM,
-                               Fonts.WEIGHT_BOLD if low_att else Fonts.WEIGHT_NORMAL),
-                         text_color=name_color, anchor="w").pack(anchor="w", padx=2, pady=2)
-            if low_att:
-                ctk.CTkLabel(name_frame, text="⚠ Low Attendance",
-                             font=(Fonts.FAMILY, Fonts.SIZE_XS),
-                             text_color=Colors.DANGER, anchor="w").pack(anchor="w", padx=2)
+            rf = ctk.CTkFrame(self._table_scroll, fg_color=Colors.BG_TABLE_ROW if idx % 2 == 0 else Colors.BG_TABLE_ALT, height=44)
+            rf.pack(fill="x")
+            rf.pack_propagate(False)
+            self._row_frames[sid] = rf
 
-            # Previous att%
-            pct_color = Colors.SUCCESS if att_pct >= 75 else Colors.DANGER
-            ctk.CTkLabel(row, text=f"{att_pct}%", width=120,
-                         font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
-                         text_color=pct_color, anchor="w").pack(side="left", padx=4)
+            ctk.CTkLabel(rf, text=str(idx + 1), width=45, font=(Fonts.FAMILY, Fonts.SIZE_SM), text_color=Colors.TEXT_MUTED, anchor="w").pack(side="left", padx=10)
+            ctk.CTkLabel(rf, text=student.get("roll_no", "-"), width=75, font=(Fonts.FAMILY_MONO, Fonts.SIZE_SM), text_color=Colors.TEXT_PRIMARY, anchor="w").pack(side="left", padx=10)
+            ctk.CTkLabel(rf, text=student["name"], width=240, font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD), text_color=Colors.TEXT_PRIMARY, anchor="w").pack(side="left", padx=10)
+
+            # Buttons container
+            bc = ctk.CTkFrame(rf, fg_color="transparent", width=320)
+            bc.pack(side="left", padx=10)
 
             if self._editable:
-                # Interactive buttons (Teacher only)
-                btn_frame = ctk.CTkFrame(row, fg_color="transparent", width=310)
-                btn_frame.pack(side="left", padx=4)
-                btn_frame.pack_propagate(False)
-                
-                status_var = ctk.StringVar(value=existing.get(sid, "Present"))
-                self._row_vars[sid] = status_var
-
-                for stat in self.STATUSES:
-                    color  = self.STATUS_COLORS[stat]
-                    bgcol  = self.STATUS_BG[stat]
-
-                    def make_cmd(s=stat, sv=status_var, bf=btn_frame):
-                        def cmd():
-                            sv.set(s)
-                            self._refresh_btn_group(bf, s)
-                            self._update_stats()
-                        return cmd
-
-                    is_sel = (status_var.get() == stat)
-                    b = ctk.CTkButton(
-                        btn_frame,
-                        text=stat,
-                        width=68, height=28,
-                        corner_radius=6,
+                for status in self.STATUSES:
+                    sc = self.STATUS_COLORS[status]
+                    btn = ctk.CTkRadioButton(
+                        bc, text=status, variable=var, value=status,
                         font=(Fonts.FAMILY, Fonts.SIZE_XS, Fonts.WEIGHT_BOLD),
-                        fg_color=color if is_sel else bgcol,
-                        text_color=Colors.TEXT_WHITE if is_sel else color,
-                        hover_color=color,
-                        command=make_cmd(),
+                        text_color=sc, fg_color=sc, hover_color=sc,
+                        command=self._update_stats_display,
                     )
-                    b.pack(side="left", padx=2, pady=9)
-
-                # Overall badge
-                pct_badge_color = Colors.SUCCESS if att_pct >= 75 else Colors.DANGER
-                ctk.CTkLabel(row, text=f"{att_pct}%", width=100,
-                             font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
-                             text_color=pct_badge_color, anchor="w").pack(side="left", padx=4)
+                    btn.pack(side="left", padx=(0, 10))
             else:
-                # Read-only status display (Admin layout framework context)
-                badge_container = ctk.CTkFrame(row, fg_color="transparent", width=310)
-                badge_container.pack(side="left", padx=4)
-                badge_container.pack_propagate(False)
-                
-                cur_status = existing.get(sid, "—")
-                if cur_status != "—":
-                    StatusBadge(badge_container, cur_status).pack(side="left", pady=10)
+                StatusBadge(bc, init_status).pack(side="left")
+
+            pct = self._state.compute_attendance_pct(sid)
+            pct_color = Colors.SUCCESS if pct >= 85 else (Colors.WARNING if pct >= 75 else Colors.DANGER)
+            ctk.CTkLabel(rf, text=f"{pct}%", width=100, font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD), text_color=pct_color, anchor="w").pack(side="left", padx=10)
+
+        self._update_stats_display()
+
+    def _filter_rows(self):
+        q = self._search_var.get().strip().lower()
+        students = [s for s in self._state.students if s["class"] == self._selected_class]
+        for s in students:
+            sid = s["id"]
+            rf = self._row_frames.get(sid)
+            if rf:
+                if not q or q in s["name"].lower() or q in s.get("roll_no", ""):
+                    rf.pack(fill="x")
                 else:
-                    ctk.CTkLabel(badge_container, text="Not recorded",
-                                 font=(Fonts.FAMILY, Fonts.SIZE_SM),
-                                 text_color=Colors.TEXT_MUTED, anchor="w").pack(side="left", expand=True)
-
-                # Overall attendance
-                pct_badge_color = Colors.SUCCESS if att_pct >= 75 else Colors.DANGER
-                ctk.CTkLabel(row, text=f"{att_pct}%", width=100,
-                             font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
-                             text_color=pct_badge_color, anchor="w").pack(side="left", padx=4)
-
-                # Track for stats even in view mode
-                self._row_vars[sid] = ctk.StringVar(value=cur_status if cur_status != "—" else "Absent")
-
-            ctk.CTkFrame(self._att_scroll, height=1, fg_color=Colors.DIVIDER,
-                          corner_radius=0).pack(fill="x")
-
-        self._update_stats()
-
-    def _refresh_btn_group(self, frame: ctk.CTkFrame, selected: str):
-        btns = [w for w in frame.winfo_children() if isinstance(w, ctk.CTkButton)]
-        for btn in btns:
-            stat = btn.cget("text")
-            color = self.STATUS_COLORS.get(stat, Colors.PRIMARY)
-            bg    = self.STATUS_BG.get(stat, Colors.PRIMARY_LIGHT)
-            if stat == selected:
-                btn.configure(fg_color=color, text_color=Colors.TEXT_WHITE)
-            else:
-                btn.configure(fg_color=bg, text_color=color)
+                    rf.pack_forget()
 
     def _bulk_set(self, status: str):
-        for sid, var in self._row_vars.items():
-            var.set(status)
-        for row_frame in self._att_scroll.winfo_children():
-            if not isinstance(row_frame, ctk.CTkFrame):
-                continue
-            for child in row_frame.winfo_children():
-                if isinstance(child, ctk.CTkFrame) and child.winfo_reqwidth() >= 280:
-                    self._refresh_btn_group(child, status)
-        self._update_stats()
-
-    def _update_stats(self):
-        counts = {"Present": 0, "Absent": 0, "Late": 0, "Leave": 0}
+        # Save snapshot for undo
+        self._last_bulk_state = {sid: var.get() for sid, var in self._row_vars.items()}
         for var in self._row_vars.values():
-            s = var.get()
-            if s in counts:
-                counts[s] += 1
-        total = len(self._row_vars) or 1
-        pct   = round((counts["Present"] / total) * 100, 1)
-        self._stat_labels["present"].configure(text=str(counts["Present"]))
-        self._stat_labels["absent"].configure(text=str(counts["Absent"]))
-        self._stat_labels["late"].configure(text=str(counts["Late"]))
-        self._stat_labels["leave"].configure(text=str(counts["Leave"]))
-        pct_color = Colors.SUCCESS if pct >= 85 else (Colors.WARNING if pct >= 75 else Colors.DANGER)
-        self._stat_labels["pct"].configure(text=f"{pct}%", text_color=pct_color)
+            var.set(status)
+        self._update_stats_display()
+        self._toast(
+            f"Marked all students as '{status}'.",
+            "info",
+            action_label="↶ Undo",
+            action_fn=self._undo_bulk_action,
+        )
+
+    def _undo_bulk_action(self):
+        if self._last_bulk_state:
+            for sid, prev_stat in self._last_bulk_state.items():
+                if sid in self._row_vars:
+                    self._row_vars[sid].set(prev_stat)
+            self._update_stats_display()
+            self._toast("Bulk action undone. Reverted previous statuses.", "success")
+            self._last_bulk_state.clear()
+
+    def _update_stats_display(self):
+        if not hasattr(self, "_stat_labels"):
+            return
+        vals = [var.get() for var in self._row_vars.values()]
+        for k in ["present", "absent", "late", "leave"]:
+            c = vals.count(k.capitalize())
+            if k in self._stat_labels:
+                self._stat_labels[k].configure(text=f"  {k.capitalize()}: {c}  ")
 
     def _save_attendance(self):
-        if not self._editable:
-            self._toast("Access denied. Admins cannot edit attendance.", "error")
-            return
-        date_str = self._date_var.get().strip()
-        cls      = self._class_var.get()
-        self._state.attendance = [
-            r for r in self._state.attendance
-            if not (r["class"] == cls and r["date"] == date_str)
-        ]
-        students = self._state.get_students_by_class(cls)
-        for student in students:
-            sid    = student["id"]
-            status = self._row_vars.get(sid, ctk.StringVar(value="Present")).get()
-            self._state.attendance.append({
-                "id":           f"ATT{sid}{date_str}",
-                "student_id":   sid,
-                "student_name": student["name"],
-                "class":        cls,
-                "date":         date_str,
-                "status":       status,
+        date_str = self._date_var.get()
+        students = [s for s in self._state.students if s["class"] == self._selected_class]
+        records = []
+        for s in students:
+            sid = s["id"]
+            stat = self._row_vars[sid].get()
+            records.append({
+                "id": f"ATT{sid}{date_str}",
+                "student_id": sid,
+                "student_name": s["name"],
+                "class": self._selected_class,
+                "date": date_str,
+                "status": stat,
             })
-        self._toast(f"✓  Attendance saved for {cls}  –  {date_str}", "success")
+        self._state.save_attendance_batch(records)
+        self._toast(f"Attendance for {self._selected_class} ({date_str}) saved to SQLite database!", "success")
 
-    def _on_class_change(self, choice):
-        self._selected_class = choice
-        self._load_attendance()
+    def _load_attendance(self):
+        self._selected_date = self._date_var.get()
+        self._populate_rows()
+        self._toast(f"Loaded attendance records for {self._selected_date}", "info")
+
+    def _on_class_change(self, val):
+        self._selected_class = val
+        self._populate_rows()

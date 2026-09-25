@@ -1,12 +1,13 @@
 """
 app/screens/login.py
 Premium Blue & White Login Screen – EduTrack / Dar-e-Arqam School.
+Supports Administrator, Teacher, and Parent demo roles with 1-click quick-login buttons.
 """
 
 import customtkinter as ctk
 from app.config import (
     Colors, Fonts, Spacing, ROLES, DEMO_USERS,
-    APP_NAME, SCHOOL_NAME, ROLE_ADMIN,
+    APP_NAME, SCHOOL_NAME, ROLE_ADMIN, ROLE_TEACHER, ROLE_PARENT,
 )
 
 
@@ -38,12 +39,12 @@ class LoginScreen(ctk.CTkFrame):
         brand_inner.place(relx=0.5, rely=0.44, anchor="center")
 
         # Icon
-        icon_bg = ctk.CTkFrame(brand_inner, width=100, height=100,
-                                fg_color="#0D47A1", corner_radius=50)
-        icon_bg.pack(pady=(0, 20))
+        icon_bg = ctk.CTkFrame(brand_inner, width=90, height=90,
+                                fg_color="#0D47A1", corner_radius=45)
+        icon_bg.pack(pady=(0, 16))
         icon_bg.pack_propagate(False)
         ctk.CTkLabel(icon_bg, text="🎓",
-                     font=(Fonts.FAMILY, 48),
+                     font=(Fonts.FAMILY, 44),
                      text_color=Colors.TEXT_WHITE).pack(expand=True)
 
         ctk.CTkLabel(
@@ -56,13 +57,13 @@ class LoginScreen(ctk.CTkFrame):
             brand_inner, text="School Management System",
             font=(Fonts.FAMILY, Fonts.SIZE_XL),
             text_color="#90CAF9",
-        ).pack(pady=(4, 0))
+        ).pack(pady=(2, 0))
 
         # Divider
         ctk.CTkFrame(
             brand_inner, height=2, width=220,
             fg_color="#42A5F5", corner_radius=1,
-        ).pack(pady=22)
+        ).pack(pady=18)
 
         ctk.CTkLabel(
             brand_inner, text=SCHOOL_NAME,
@@ -74,13 +75,17 @@ class LoginScreen(ctk.CTkFrame):
             brand_inner, text="Excellence  ·  Discipline  ·  Character",
             font=(Fonts.FAMILY, Fonts.SIZE_SM),
             text_color="#90CAF9",
-        ).pack(pady=(6, 0))
+        ).pack(pady=(4, 0))
 
         # Feature bullets
         bullets_frame = ctk.CTkFrame(brand_inner, fg_color="transparent")
-        bullets_frame.pack(pady=(28, 0))
-        for bullet in ["Role-Based Access Control", "Attendance & Marks Management",
-                        "Timetable & Conflict Detection", "PDF & Excel Report Export"]:
+        bullets_frame.pack(pady=(20, 0))
+        for bullet in [
+            "Role-Based Portals (Admin, Teacher, Parent)",
+            "Bulk Attendance with Instant Undo Action",
+            "Interactive Weekly Timetable & Conflicts",
+            "Local SQLite Persistence & Offline-First Mode",
+        ]:
             row = ctk.CTkFrame(bullets_frame, fg_color="transparent")
             row.pack(anchor="w", pady=2)
             ctk.CTkLabel(row, text="✓",
@@ -93,7 +98,7 @@ class LoginScreen(ctk.CTkFrame):
         # Bottom tagline
         ctk.CTkLabel(
             left,
-            text="Powered by EduTrack v2.0  ·  © 2026 Dar-e-Arqam School",
+            text="Powered by EduTrack v2.2 (AHCI Phase 1 Edition)  ·  © 2026 Dar-e-Arqam School",
             font=(Fonts.FAMILY, Fonts.SIZE_XS),
             text_color="#64B5F6",
         ).place(relx=0.5, rely=0.96, anchor="center")
@@ -109,11 +114,11 @@ class LoginScreen(ctk.CTkFrame):
             border_width=1,
             border_color=Colors.BORDER,
         )
-        card.place(relx=0.5, rely=0.5, anchor="center", relwidth=0.74)
+        card.place(relx=0.5, rely=0.5, anchor="center", relwidth=0.76)
 
         # Card inner
         inner = ctk.CTkFrame(card, fg_color="transparent")
-        inner.pack(fill="both", expand=True, padx=40, pady=36)
+        inner.pack(fill="both", expand=True, padx=36, pady=28)
 
         # Blue top accent
         ctk.CTkFrame(card, height=4, fg_color=Colors.PRIMARY,
@@ -122,36 +127,36 @@ class LoginScreen(ctk.CTkFrame):
         # Welcome text
         ctk.CTkLabel(
             inner, text="Welcome Back 👋",
-            font=(Fonts.FAMILY, Fonts.SIZE_4XL, Fonts.WEIGHT_BOLD),
+            font=(Fonts.FAMILY, Fonts.SIZE_3XL, Fonts.WEIGHT_BOLD),
             text_color=Colors.TEXT_HEADING,
             anchor="w",
         ).pack(anchor="w")
         ctk.CTkLabel(
-            inner, text="Sign in to access your EduTrack dashboard",
+            inner, text="Sign in or use 1-click demo access below",
             font=(Fonts.FAMILY, Fonts.SIZE_SM),
             text_color=Colors.TEXT_MUTED,
             anchor="w",
-        ).pack(anchor="w", pady=(4, 24))
+        ).pack(anchor="w", pady=(2, 14))
 
         # Role selector
-        self._make_label(inner, "Login As")
+        self._make_label(inner, "Select Role")
         role_frame = ctk.CTkFrame(inner, fg_color=Colors.BG_INPUT,
                                    corner_radius=8, border_width=1,
                                    border_color=Colors.BORDER)
-        role_frame.pack(fill="x", pady=(4, 18))
+        role_frame.pack(fill="x", pady=(2, 12))
         role_inner = ctk.CTkFrame(role_frame, fg_color="transparent")
-        role_inner.pack(padx=12, pady=8)
+        role_inner.pack(padx=10, pady=6)
         for role in ROLES:
             rb = ctk.CTkRadioButton(
                 role_inner, text=role,
                 variable=self._role_var, value=role,
-                font=(Fonts.FAMILY, Fonts.SIZE_MD),
+                font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
                 text_color=Colors.TEXT_PRIMARY,
                 fg_color=Colors.PRIMARY,
                 hover_color=Colors.PRIMARY_DARK,
                 command=self._prefill,
             )
-            rb.pack(side="left", padx=(0, 20))
+            rb.pack(side="left", padx=(0, 14))
 
         # Username
         self._make_label(inner, "Username")
@@ -173,43 +178,69 @@ class LoginScreen(ctk.CTkFrame):
             hover_color=Colors.PRIMARY_DARK,
             command=self._toggle_password_visibility,
         )
-        self._show_pass_btn.pack(anchor="w", pady=(0, 10))
+        self._show_pass_btn.pack(anchor="w", pady=(0, 6))
 
         # Error message
         self._error_lbl = ctk.CTkLabel(
             inner, textvariable=self._error_var,
-            font=(Fonts.FAMILY, Fonts.SIZE_SM),
+            font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
             text_color=Colors.DANGER,
             anchor="w",
         )
-        self._error_lbl.pack(anchor="w", pady=(2, 0))
+        self._error_lbl.pack(anchor="w", pady=(0, 4))
 
         # Login button
         ctk.CTkButton(
             inner, text="Sign In  →",
-            height=46, corner_radius=10,
-            font=(Fonts.FAMILY, Fonts.SIZE_LG, Fonts.WEIGHT_BOLD),
+            height=42, corner_radius=8,
+            font=(Fonts.FAMILY, Fonts.SIZE_MD, Fonts.WEIGHT_BOLD),
             fg_color=Colors.PRIMARY,
             hover_color=Colors.PRIMARY_DARK,
             text_color=Colors.TEXT_WHITE,
             command=self._attempt_login,
-        ).pack(fill="x", pady=(18, 0))
+        ).pack(fill="x", pady=(8, 12))
 
-        # Demo credentials hint
-        hint_box = ctk.CTkFrame(
-            inner, fg_color=Colors.PRIMARY_LIGHT,
-            corner_radius=8, border_width=1, border_color="#90CAF9",
+        # ── Quick 1-Click Demo Buttons ────────────────────────────────────────
+        demo_title = ctk.CTkLabel(
+            inner, text="⚡  1-Click Instant Demo Portals:",
+            font=(Fonts.FAMILY, Fonts.SIZE_XS, Fonts.WEIGHT_BOLD),
+            text_color=Colors.TEXT_SECONDARY,
+            anchor="w",
         )
-        hint_box.pack(fill="x", pady=(16, 0))
-        ctk.CTkLabel(
-            hint_box,
-            text="💡  Demo Credentials\n"
-                 "Admin: admin / admin123   ·   Teacher: teacher / teacher123",
-            font=(Fonts.FAMILY, Fonts.SIZE_XS),
-            text_color=Colors.PRIMARY,
-            wraplength=340,
-            justify="center",
-        ).pack(padx=12, pady=8)
+        demo_title.pack(anchor="w", pady=(4, 6))
+
+        btn_row = ctk.CTkFrame(inner, fg_color="transparent")
+        btn_row.pack(fill="x")
+
+        # Admin Demo
+        ctk.CTkButton(
+            btn_row, text="🛡 Admin Portal",
+            height=32, corner_radius=6,
+            font=(Fonts.FAMILY, Fonts.SIZE_XS, Fonts.WEIGHT_BOLD),
+            fg_color=Colors.PRIMARY_LIGHT, text_color=Colors.PRIMARY,
+            hover_color=Colors.PRIMARY,
+            command=lambda: self._quick_login(ROLE_ADMIN),
+        ).pack(side="left", fill="x", expand=True, padx=(0, 4))
+
+        # Teacher Demo
+        ctk.CTkButton(
+            btn_row, text="📚 Teacher Portal",
+            height=32, corner_radius=6,
+            font=(Fonts.FAMILY, Fonts.SIZE_XS, Fonts.WEIGHT_BOLD),
+            fg_color="#E0F2F1", text_color=Colors.ACCENT,
+            hover_color=Colors.ACCENT,
+            command=lambda: self._quick_login(ROLE_TEACHER),
+        ).pack(side="left", fill="x", expand=True, padx=4)
+
+        # Parent Demo
+        ctk.CTkButton(
+            btn_row, text="👨‍👩‍👧 Parent Portal",
+            height=32, corner_radius=6,
+            font=(Fonts.FAMILY, Fonts.SIZE_XS, Fonts.WEIGHT_BOLD),
+            fg_color=Colors.PARENT_BG, text_color=Colors.PARENT_ACCENT,
+            hover_color=Colors.PARENT_ACCENT,
+            command=lambda: self._quick_login(ROLE_PARENT),
+        ).pack(side="left", fill="x", expand=True, padx=(4, 0))
 
         # Pre-fill based on current role selection
         self._prefill()
@@ -220,13 +251,13 @@ class LoginScreen(ctk.CTkFrame):
             font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
             text_color=Colors.TEXT_SECONDARY,
             anchor="w",
-        ).pack(anchor="w", pady=(0, 4))
+        ).pack(anchor="w", pady=(0, 2))
 
     def _make_entry(self, parent, placeholder: str, is_password: bool) -> ctk.CTkEntry:
         entry = ctk.CTkEntry(
             parent,
             placeholder_text=placeholder,
-            height=44,
+            height=38,
             corner_radius=8,
             font=(Fonts.FAMILY, Fonts.SIZE_MD),
             fg_color=Colors.BG_INPUT,
@@ -235,7 +266,7 @@ class LoginScreen(ctk.CTkFrame):
             placeholder_text_color=Colors.TEXT_MUTED,
             show="●" if is_password else "",
         )
-        entry.pack(fill="x", pady=(0, 14))
+        entry.pack(fill="x", pady=(0, 8))
         entry.bind("<FocusIn>",  lambda e: entry.configure(border_color=Colors.BORDER_FOCUS))
         entry.bind("<FocusOut>", lambda e: entry.configure(border_color=Colors.BORDER))
         return entry
@@ -257,6 +288,11 @@ class LoginScreen(ctk.CTkFrame):
         self._password_entry.configure(show="●")
         self._error_var.set("")
 
+    def _quick_login(self, role: str):
+        self._role_var.set(role)
+        self._prefill()
+        self._attempt_login()
+
     def _attempt_login(self):
         role     = self._role_var.get()
         username = self._username_entry.get().strip()
@@ -271,4 +307,4 @@ class LoginScreen(ctk.CTkFrame):
             self._error_var.set("")
             self._on_success(role, expected)
         else:
-            self._error_var.set("✕  Invalid username or password. Please try again.")
+            self._error_var.set("✕  Invalid credentials for selected role.")

@@ -1,7 +1,7 @@
 """
 app/components/cards.py
 Reusable card widgets – Blue & White theme.
-MetricCard, AlertCard, QuickActionCard, SectionHeader, StatusBadge
+MetricCard (with click drill-down support), AlertCard, QuickActionCard, SectionHeader, StatusBadge
 """
 
 import customtkinter as ctk
@@ -10,7 +10,7 @@ from app.config import Colors, Fonts, Spacing, CARD_CORNER
 
 class MetricCard(ctk.CTkFrame):
     """
-    A stat/KPI card:
+    A stat/KPI card with drill-down click capability:
       ┌─────────────────────────────┐
       │  [top accent strip]         │
       │  [icon]   [title]           │
@@ -21,13 +21,14 @@ class MetricCard(ctk.CTkFrame):
 
     def __init__(
         self, parent,
-        title:      str,
-        value:      str,
-        icon:       str  = "📊",
-        sub_label:  str  = "",
-        accent:     str  = Colors.PRIMARY,
-        trend:      str  = "",
-        trend_color:str  = Colors.SUCCESS,
+        title:       str,
+        value:       str,
+        icon:        str  = "📊",
+        sub_label:   str  = "",
+        accent:      str  = Colors.PRIMARY,
+        trend:       str  = "",
+        trend_color: str  = Colors.SUCCESS,
+        command           = None,
         **kwargs
     ):
         super().__init__(
@@ -36,11 +37,13 @@ class MetricCard(ctk.CTkFrame):
             corner_radius=CARD_CORNER,
             border_width=1,
             border_color=Colors.BORDER,
+            cursor="hand2" if command else "",
             **kwargs
         )
         self._accent = accent
+        self._cmd = command
         self._build(title, value, icon, sub_label, accent, trend, trend_color)
-        self._bind_hover()
+        self._bind_events()
 
     def _build(self, title, value, icon, sub_label, accent, trend, trend_color):
         # Top accent strip
@@ -64,9 +67,14 @@ class MetricCard(ctk.CTkFrame):
                      text_color=accent).pack(expand=True)
 
         ctk.CTkLabel(row1, text=title,
-                     font=(Fonts.FAMILY, Fonts.SIZE_SM),
+                     font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
                      text_color=Colors.TEXT_SECONDARY,
                      anchor="w").pack(side="left", padx=(10, 0))
+
+        if self._cmd:
+            ctk.CTkLabel(row1, text="↗",
+                         font=(Fonts.FAMILY, Fonts.SIZE_SM),
+                         text_color=Colors.TEXT_MUTED).pack(side="right")
 
         # Row 2: big value
         ctk.CTkLabel(body, text=value,
@@ -92,29 +100,34 @@ class MetricCard(ctk.CTkFrame):
     def _alpha_color(hex_color: str) -> str:
         """Return a very light tint of the given hex color."""
         mapping = {
-            Colors.PRIMARY:  Colors.PRIMARY_LIGHT,
-            Colors.SUCCESS:  Colors.SUCCESS_BG,
-            Colors.WARNING:  Colors.WARNING_BG,
-            Colors.DANGER:   Colors.DANGER_BG,
-            Colors.INFO:     Colors.INFO_BG,
-            Colors.ACCENT:   "#E0F2F1",
+            Colors.PRIMARY:       Colors.PRIMARY_LIGHT,
+            Colors.SUCCESS:       Colors.SUCCESS_BG,
+            Colors.WARNING:       Colors.WARNING_BG,
+            Colors.DANGER:        Colors.DANGER_BG,
+            Colors.INFO:          Colors.INFO_BG,
+            Colors.ACCENT:        "#E0F2F1",
+            Colors.PARENT_ACCENT: Colors.PARENT_BG,
         }
         return mapping.get(hex_color, Colors.BG_INPUT)
 
-    def _bind_hover(self):
+    def _bind_events(self):
         def on_enter(e):
-            self.configure(border_color=self._accent)
+            self.configure(border_color=self._accent, fg_color=Colors.BG_HOVER if self._cmd else Colors.BG_CARD)
         def on_leave(e):
-            self.configure(border_color=Colors.BORDER)
-            
-        # Recursively apply bindings to parent and all child widgets
-        self._apply_hover_bindings(self, on_enter, on_leave)
+            self.configure(border_color=Colors.BORDER, fg_color=Colors.BG_CARD)
+        def on_click(e):
+            if self._cmd:
+                self._cmd()
 
-    def _apply_hover_bindings(self, widget, on_enter, on_leave):
+        self._apply_bindings(self, on_enter, on_leave, on_click)
+
+    def _apply_bindings(self, widget, on_enter, on_leave, on_click):
         widget.bind("<Enter>", on_enter, add="+")
         widget.bind("<Leave>", on_leave, add="+")
+        if self._cmd:
+            widget.bind("<Button-1>", on_click, add="+")
         for child in widget.winfo_children():
-            self._apply_hover_bindings(child, on_enter, on_leave)
+            self._apply_bindings(child, on_enter, on_leave, on_click)
 
 
 class AlertCard(ctk.CTkFrame):
@@ -142,7 +155,7 @@ class AlertCard(ctk.CTkFrame):
         ctk.CTkLabel(body, text=message,
                      font=(Fonts.FAMILY, Fonts.SIZE_SM),
                      text_color=Colors.TEXT_SECONDARY,
-                     wraplength=280, anchor="w", justify="left").pack(fill="x", pady=(4, 0))
+                     wraplength=340, anchor="w", justify="left").pack(fill="x", pady=(4, 0))
 
 
 class QuickActionCard(ctk.CTkFrame):
@@ -241,6 +254,8 @@ class StatusBadge(ctk.CTkLabel):
         "B":        (Colors.INFO_BG,    Colors.INFO),
         "C":        (Colors.WARNING_BG, Colors.WARNING),
         "F":        (Colors.DANGER_BG,  Colors.DANGER),
+        "Open":     (Colors.INFO_BG,    Colors.INFO),
+        "Resolved": (Colors.SUCCESS_BG, Colors.SUCCESS),
     }
 
     def __init__(self, parent, status: str, **kwargs):

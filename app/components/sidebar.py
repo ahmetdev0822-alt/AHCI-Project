@@ -2,12 +2,13 @@
 app/components/sidebar.py
 Blue & White themed sidebar with role-aware navigation,
 active state, hover effects, and clear session logout.
+Supports Administrator, Teacher, and Parent roles.
 """
 
 import customtkinter as ctk
 from app.config import (
     Colors, Fonts, Spacing, SIDEBAR_WIDTH, NAV_ITEMS,
-    ROLE_ADMIN, ROLE_TEACHER, APP_NAME, SCHOOL_NAME,
+    ROLE_ADMIN, ROLE_TEACHER, ROLE_PARENT, APP_NAME, SCHOOL_NAME,
 )
 
 
@@ -61,7 +62,7 @@ class Sidebar(ctk.CTkFrame):
             font=(Fonts.FAMILY, Fonts.SIZE_XS),
             text_color=Colors.SIDEBAR_TEXT,
             anchor="w",
-            wraplength=162,
+            wraplength=165,
         ).pack(anchor="w")
 
         # ── Role Indicator ───────────────────────────────────────────────────
@@ -69,13 +70,13 @@ class Sidebar(ctk.CTkFrame):
         role_bar.pack(fill="x")
         role_bar.pack_propagate(False)
 
-        role_icons  = {ROLE_ADMIN: "🛡", ROLE_TEACHER: "📚"}
-        role_colors = {ROLE_ADMIN: "#64B5F6", ROLE_TEACHER: "#80CBC4"}
+        role_icons  = {ROLE_ADMIN: "🛡", ROLE_TEACHER: "📚", ROLE_PARENT: "👨‍👩‍👧"}
+        role_colors = {ROLE_ADMIN: "#64B5F6", ROLE_TEACHER: "#80CBC4", ROLE_PARENT: "#CE93D8"}
         ri = role_icons.get(self._state.current_role, "●")
         rc = role_colors.get(self._state.current_role, "#64B5F6")
         ctk.CTkLabel(
             role_bar,
-            text=f"  {ri}  {self._state.current_role}",
+            text=f"  {ri}  {self._state.current_role} Portal",
             font=(Fonts.FAMILY, Fonts.SIZE_XS, Fonts.WEIGHT_BOLD),
             text_color=rc,
             anchor="w",
@@ -88,11 +89,11 @@ class Sidebar(ctk.CTkFrame):
             font=(Fonts.FAMILY, Fonts.SIZE_XS, Fonts.WEIGHT_BOLD),
             text_color=Colors.SIDEBAR_ICON,
             anchor="w",
-        ).pack(anchor="w", padx=12, pady=(18, 6))
+        ).pack(anchor="w", padx=12, pady=(14, 4))
 
         # ── Scrollable Navigation Items Area ─────────────────────────────────
-        nav_container = ctk.CTkFrame(self, fg_color="transparent")
-        nav_container.pack(fill="both", expand=True)
+        nav_container = ctk.CTkScrollableFrame(self, fg_color="transparent", corner_radius=0)
+        nav_container.pack(fill="both", expand=True, padx=2)
 
         nav_items = NAV_ITEMS.get(self._state.current_role, [])
         for item in nav_items:
@@ -100,21 +101,22 @@ class Sidebar(ctk.CTkFrame):
 
         # ── Fixed Bottom Container ──────────────────
         bottom_anchor = ctk.CTkFrame(self, fg_color="transparent")
-        bottom_anchor.pack(side="bottom", fill="x", pady=(0, 15))
+        bottom_anchor.pack(side="bottom", fill="x", pady=(0, 12))
 
         # Divider
         ctk.CTkFrame(bottom_anchor, height=1, fg_color="#243D5E",
-                     corner_radius=0).pack(fill="x", padx=14, pady=(0, 12))
+                     corner_radius=0).pack(fill="x", padx=14, pady=(0, 10))
 
-        # User Profile Block Row
-        user_area = ctk.CTkFrame(bottom_anchor, fg_color="transparent")
-        user_area.pack(fill="x", padx=14, pady=(0, 12))
+        # User Profile Block Row (Clickable to open profile)
+        user_area = ctk.CTkFrame(bottom_anchor, fg_color="transparent", cursor="hand2")
+        user_area.pack(fill="x", padx=14, pady=(0, 10))
         user_area.columnconfigure(0, weight=0) # Avatar
         user_area.columnconfigure(1, weight=1) # Information Labels
 
         # Avatar circle
         avatar = ctk.CTkFrame(user_area, width=38, height=38,
-                               fg_color=Colors.PRIMARY, corner_radius=19)
+                               fg_color=Colors.PARENT_ACCENT if self._state.current_role == ROLE_PARENT else Colors.PRIMARY,
+                               corner_radius=19)
         avatar.grid(row=0, column=0, sticky="w")
         avatar.pack_propagate(False)
         
@@ -148,11 +150,15 @@ class Sidebar(ctk.CTkFrame):
             text_color=Colors.SIDEBAR_TEXT, anchor="w",
         ).pack(anchor="w")
 
-        # ── Fully Prominent White Logout Button ──────────────────────────────
+        user_area.bind("<Button-1>", lambda e: self._navigate_fn("profile"))
+        for child in [avatar, user_info]:
+            child.bind("<Button-1>", lambda e: self._navigate_fn("profile"))
+
+        # ── Logout Button ──────────────────────────────
         logout_btn = ctk.CTkButton(
             bottom_anchor,
             text="🚪  Logout Session",
-            height=36,
+            height=34,
             corner_radius=8,
             font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
             fg_color="#D32F2F",
@@ -169,7 +175,7 @@ class Sidebar(ctk.CTkFrame):
             container,
             text=f"  {icon}   {label}",
             anchor="w",
-            height=40,
+            height=38,
             corner_radius=8,
             font=(Fonts.FAMILY, Fonts.SIZE_MD,
                   Fonts.WEIGHT_BOLD if is_active else Fonts.WEIGHT_NORMAL),
@@ -178,7 +184,7 @@ class Sidebar(ctk.CTkFrame):
             hover_color=Colors.SIDEBAR_HOVER_BG,
             command=lambda k=key: self._navigate_fn(k),
         )
-        btn.pack(fill="x", padx=10, pady=2)
+        btn.pack(fill="x", padx=6, pady=2)
         self._nav_buttons[key] = btn
 
     def set_active(self, key: str):

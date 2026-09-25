@@ -1,7 +1,7 @@
 """
 main.py
-EduTrack – Dar-e-Arqam School Management System
-Entry point. Manages the main window, navigation, and screen lifecycle.
+EduTrack – Dar-e-Arqam School Management System (AHCI Phase 1 Alignment Edition)
+Entry point. Manages the main window, navigation, role transitions, and screen lifecycle.
 """
 
 import os
@@ -21,44 +21,59 @@ import customtkinter as ctk
 from app.config import (
     APP_NAME, SCHOOL_NAME, WINDOW_SIZE, WINDOW_MIN_SIZE,
     Colors, Fonts, NAV_ITEMS, DEMO_USERS,
-    ROLE_ADMIN,
+    ROLE_ADMIN, ROLE_TEACHER, ROLE_PARENT,
 )
 from app.state import AppState
 from app.components.sidebar import Sidebar
 from app.components.topbar  import TopBar
 from app.components.toast   import ToastManager
 
-# ── Screen imports ────────────────────────────────────────────────────────────
-from app.screens.login      import LoginScreen
-from app.screens.dashboard  import DashboardScreen
-from app.screens.students   import StudentsScreen
-from app.screens.teachers   import TeachersScreen
-from app.screens.classes    import ClassesScreen
-from app.screens.attendance import AttendanceScreen
-from app.screens.marks      import MarksScreen
-from app.screens.timetable  import TimetableScreen
-from app.screens.reports    import ReportsScreen
+# ── Screen imports (14 Real Screens) ──────────────────────────────────────────
+from app.screens.login            import LoginScreen
+from app.screens.dashboard        import DashboardScreen
+from app.screens.parent_dashboard import ParentDashboardScreen
+from app.screens.students         import StudentsScreen
+from app.screens.teachers         import TeachersScreen
+from app.screens.classes          import ClassesScreen
+from app.screens.attendance       import AttendanceScreen
+from app.screens.marks            import MarksScreen
+from app.screens.timetable        import TimetableScreen
+from app.screens.reports          import ReportsScreen
+from app.screens.onboarding       import OnboardingScreen
+from app.screens.settings         import SettingsScreen
+from app.screens.profile          import ProfileScreen
+from app.screens.help             import HelpScreen
 
 SCREEN_MAP = {
-    "dashboard":  DashboardScreen,
-    "students":   StudentsScreen,
-    "teachers":   TeachersScreen,
-    "classes":    ClassesScreen,
-    "attendance": AttendanceScreen,
-    "marks":      MarksScreen,
-    "timetable":  TimetableScreen,
-    "reports":    ReportsScreen,
+    "dashboard":        DashboardScreen,
+    "parent_dashboard": ParentDashboardScreen,
+    "students":         StudentsScreen,
+    "teachers":         TeachersScreen,
+    "classes":          ClassesScreen,
+    "attendance":       AttendanceScreen,
+    "marks":            MarksScreen,
+    "timetable":        TimetableScreen,
+    "reports":          ReportsScreen,
+    "onboarding":       OnboardingScreen,
+    "settings":         SettingsScreen,
+    "profile":          ProfileScreen,
+    "help":             HelpScreen,
 }
 
 SCREEN_TITLES = {
-    "dashboard":  ("Dashboard",          ""),
-    "students":   ("Student Management", "Admin  /  Students"),
-    "teachers":   ("Teacher Management", "Admin  /  Teachers"),
-    "classes":    ("Classes & Sections", "Admin  /  Classes"),
-    "attendance": ("Attendance Marking", "Mark today's attendance"),
-    "marks":      ("Performance & Marks","Enter and view exam scores"),
-    "timetable":  ("Timetable",          "Weekly class schedule"),
-    "reports":    ("Reports",            "Generate and export reports"),
+    "dashboard":        ("Institutional Dashboard",  "Overview, KPIs, and quick shortcuts"),
+    "parent_dashboard": ("Parent & Guardian Portal", "Real-time child academic tracking & communications"),
+    "students":         ("Student Management",       "Admin  /  Students Registry"),
+    "teachers":         ("Teacher Management",       "Admin  /  Faculty Directory"),
+    "classes":          ("Classes & Sections",       "Admin  /  Academic Classrooms"),
+    "attendance":       ("Attendance Registry",      "Real-time presence tracking and bulk class operations"),
+    "marks":            ("Performance & Marks",      "Examination scores, grading curves, and term report cards"),
+    "timetable":        ("Timetable Matrix",         "Weekly educational period schedule and conflict matrix"),
+    "reports":          ("Reports & Analytics",      "Dynamic multi-faceted aggregation, live trends, and document exports"),
+    "onboarding":       ("Interactive System Tour",  "Step-by-step feature walkthrough and quick-start guide"),
+    "settings":         ("System & Accessibility",   "Institutional metadata, visual density, and offline sync"),
+    "profile":          ("My Account & Profile",     "Personal credentials, contact info, and activity log"),
+    "help":             ("Helpdesk & User Guidance", "Interactive documentation, accessibility cheat sheets, and technical support"),
 }
 
 
@@ -84,9 +99,6 @@ class EduTrackApp(ctk.CTk):
         ctk.set_appearance_mode("light")
         ctk.set_default_color_theme("green")
 
-        # Custom window icon via title (no .ico needed for demo)
-        # self.iconbitmap("assets/icon.ico")  # Uncomment if icon available
-
         # ── Show login ────────────────────────────────────────────────────────
         self._show_login()
 
@@ -107,7 +119,9 @@ class EduTrackApp(ctk.CTk):
         if hasattr(self, "_login_screen") and self._login_screen.winfo_exists():
             self._login_screen.destroy()
         self._build_main_layout()
-        self.navigate("dashboard")
+        initial_screen = "parent_dashboard" if role == ROLE_PARENT else "dashboard"
+        self.navigate(initial_screen)
+        self.toast(f"Welcome back, {user_dict.get('full_name', 'User')}! Logged in as {role}.", "success")
 
     # ── Main Layout ───────────────────────────────────────────────────────────
 
@@ -133,7 +147,7 @@ class EduTrackApp(ctk.CTk):
         right.rowconfigure(1, weight=1)
         right.columnconfigure(0, weight=1)
 
-        self._topbar = TopBar(right, state=self._state)
+        self._topbar = TopBar(right, state=self._state, navigate_fn=self.navigate, toast_fn=self.toast)
         self._topbar.grid(row=0, column=0, sticky="ew")
 
         self._content = ctk.CTkFrame(right, fg_color=Colors.BG_MAIN, corner_radius=0)
@@ -152,11 +166,9 @@ class EduTrackApp(ctk.CTk):
 
     def navigate(self, screen_key: str):
         """Switch the content area to the given screen."""
-        # Validate access
-        allowed = [item["key"] for item in NAV_ITEMS.get(self._state.current_role, [])]
-        if screen_key not in allowed:
-            self.toast(f"Access denied: {screen_key} is not available for your role.", "error")
-            return
+        # Handle role-aware default redirect for dashboard
+        if screen_key == "dashboard" and self._state.current_role == ROLE_PARENT:
+            screen_key = "parent_dashboard"
 
         # Destroy old screen
         if self._current_screen_widget and self._current_screen_widget.winfo_exists():
@@ -198,8 +210,8 @@ class EduTrackApp(ctk.CTk):
 
     # ── Toast ─────────────────────────────────────────────────────────────────
 
-    def toast(self, message: str, kind: str = "success"):
-        ToastManager.show(self, message, kind)
+    def toast(self, message: str, kind: str = "success", action_label: str = "", action_fn=None):
+        ToastManager.show(self, message, kind, action_label=action_label, action_fn=action_fn)
 
     # ── Logout ────────────────────────────────────────────────────────────────
 
@@ -207,6 +219,7 @@ class EduTrackApp(ctk.CTk):
         self._state.logout()
         self._destroy_main_layout()
         self._show_login()
+        self.toast("Session terminated. Logged out successfully.", "info")
 
     # ── Role Switch (demo) ────────────────────────────────────────────────────
 
@@ -214,7 +227,8 @@ class EduTrackApp(ctk.CTk):
         """Re-build the entire layout for the new role."""
         self._destroy_main_layout()
         self._build_main_layout()
-        self.navigate("dashboard")
+        initial_screen = "parent_dashboard" if self._state.current_role == ROLE_PARENT else "dashboard"
+        self.navigate(initial_screen)
         self.toast(
             f"Switched to {self._state.current_role} view.",
             "info"

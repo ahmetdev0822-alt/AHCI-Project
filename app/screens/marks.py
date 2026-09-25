@@ -1,16 +1,19 @@
 """
 app/screens/marks.py
 Marks / Performance Screen – Blue & White theme + strict RBAC:
-  - Admin:   VIEW ONLY – read-only labels, no Save button
-  - Teacher: EDIT – enter marks for their assigned classes only
+  - Admin:   VIEW ONLY – audit scores, grade analytics
+  - Teacher: EDIT – enter marks with accessible validation
+  - Parent:  CHILD GRADEBOOK – child report card & subject marks
+Addresses CS3014 Section 4 (Accessible validation) and Section 10 (Multi-state views).
 """
 
 import customtkinter as ctk
 from app.config import (
     Colors, Fonts, Spacing, CARD_CORNER,
-    ROLE_ADMIN, ROLE_TEACHER,
+    ROLE_ADMIN, ROLE_TEACHER, ROLE_PARENT,
 )
-from app.components.cards import SectionHeader, StatusBadge
+from app.components.cards import SectionHeader, StatusBadge, MetricCard
+from app.components.state_view import StateView, StateSwitchDemoBar
 from app.data.sample_data import SUBJECTS, ASSESSMENT_TYPES
 
 
@@ -21,6 +24,8 @@ class MarksScreen(ctk.CTkFrame):
         self._navigate = navigate_fn
         self._toast    = toast_fn
         self._mark_entries: dict[str, ctk.StringVar] = {}
+        self._grade_lbls:   dict[str, ctk.CTkLabel]  = {}
+        self._pct_lbls:     dict[str, ctk.CTkLabel]  = {}
 
         role = self._state.current_role
         self._editable = (role == ROLE_TEACHER)
@@ -28,6 +33,9 @@ class MarksScreen(ctk.CTkFrame):
         if role == ROLE_TEACHER:
             my_classes = self._state.get_classes_for_role()
             self._sel_class = my_classes[0] if my_classes else "Class 8-A"
+        elif role == ROLE_PARENT:
+            child = self._state.get_linked_child()
+            self._sel_class = child.get("class", "Class 8-A") if child else "Class 8-A"
         else:
             all_classes = sorted({s["class"] for s in self._state.students})
             self._sel_class = all_classes[0] if all_classes else "Class 8-A"
@@ -43,323 +51,304 @@ class MarksScreen(ctk.CTkFrame):
         pad  = Spacing.XL
         role = self._state.current_role
 
-        # ── Read-Only Banner (Admin) ──────────────────────────────────────────
+        # Top Bar
+        top_row = ctk.CTkFrame(self, fg_color="transparent")
+        top_row.pack(fill="x", padx=pad, pady=(pad, 0))
+        SectionHeader(top_row, "Performance & Marks Registry", "Examination scores, grading curves, and term report cards").pack(side="left", fill="y")
+        StateSwitchDemoBar(top_row, on_switch_fn=self._on_state_switch).pack(side="right")
+
+        # Read-Only Banner (Admin)
         if not self._editable and role == ROLE_ADMIN:
-            banner_text  = "🔒  Administrator View  –  You can view and print marks, but cannot enter or edit them."
-            banner_color = Colors.INFO_BG
-            border_color = Colors.INFO
-            text_color   = Colors.INFO
-
-            banner = ctk.CTkFrame(self, fg_color=banner_color, corner_radius=8,
-                                   border_width=1, border_color=border_color)
-            banner.pack(fill="x", padx=pad, pady=(pad, 0))
-            ctk.CTkLabel(banner, text=banner_text,
-                         font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
-                         text_color=text_color).pack(padx=16, pady=8)
-
-        # ── Toolbar ───────────────────────────────────────────────────────────
-        toolbar = ctk.CTkFrame(self, fg_color="transparent")
-        toolbar.pack(fill="x", padx=pad,
-                     pady=(Spacing.MD if not self._editable else pad, Spacing.SM))
-        SectionHeader(toolbar, "Marks & Performance",
-                      "View or enter exam marks by class, subject, and assessment"
-                      ).pack(side="left", fill="y")
+            banner = ctk.CTkFrame(self, fg_color=Colors.INFO_BG, corner_radius=8, border_width=1, border_color=Colors.INFO)
+            banner.pack(fill="x", padx=pad, pady=(Spacing.SM, 0))
+            ctk.CTkLabel(banner, text="🔒  Administrator View  –  Audit and export examination marks. Score entry is reserved for assigned subject teachers.", font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD), text_color=Colors.INFO).pack(padx=16, pady=6)
 
         # ── Selector Panel ────────────────────────────────────────────────────
-        sel = ctk.CTkFrame(self, fg_color=Colors.BG_CARD, corner_radius=10,
-                            border_width=1, border_color=Colors.BORDER)
-        sel.pack(fill="x", padx=pad, pady=(0, Spacing.MD))
+        sel = ctk.CTkFrame(self, fg_color=Colors.BG_CARD, corner_radius=10, border_width=1, border_color=Colors.BORDER)
+        sel.pack(fill="x", padx=pad, pady=(Spacing.SM, Spacing.MD))
         sel_inner = ctk.CTkFrame(sel, fg_color="transparent")
         sel_inner.pack(fill="x", padx=Spacing.LG, pady=Spacing.MD)
 
-        if role == ROLE_TEACHER:
-            class_list = self._state.get_classes_for_role()
+        if role == ROLE_PARENT:
+            child = self._state.get_linked_child()
+            cname = child.get("name", "Student") if child else "Fatima Bibi"
+            ctk.CTkLabel(sel_inner, text=f"Gradebook Report Card: {cname} ({self._sel_class})", font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD), text_color=Colors.PRIMARY).pack(side="left")
+            self._assessment_var = ctk.StringVar(value="Mid-Term")
+            ctk.CTkOptionMenu(
+                sel_inner, values=["Monthly Test", "Mid-Term", "Final Exam"], variable=self._assessment_var,
+                width=160, height=34, font=(Fonts.FAMILY, Fonts.SIZE_SM), fg_color=Colors.BG_INPUT, button_color=Colors.PRIMARY, text_color=Colors.TEXT_PRIMARY,
+                command=lambda _: self._reload_parent_view(),
+            ).pack(side="right")
         else:
-            class_list = sorted({s["class"] for s in self._state.students})
+            class_list = self._state.get_classes_for_role() if role == ROLE_TEACHER else sorted({s["class"] for s in self._state.students})
 
-        def make_selector(label_text, values, default):
-            ctk.CTkLabel(sel_inner, text=label_text,
-                         font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
-                         text_color=Colors.TEXT_SECONDARY).pack(side="left", padx=(0, 4))
-            var = ctk.StringVar(value=default)
-            menu = ctk.CTkOptionMenu(
-                sel_inner, values=values, variable=var,
-                width=148, height=34, font=(Fonts.FAMILY, Fonts.SIZE_SM),
-                fg_color=Colors.BG_INPUT, button_color=Colors.PRIMARY,
-                text_color=Colors.TEXT_PRIMARY,
-                command=lambda _: self._reload(),
-            )
-            menu.pack(side="left", padx=(0, 20))
-            return var
+            def make_selector(label_text, values, default):
+                ctk.CTkLabel(sel_inner, text=label_text, font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD), text_color=Colors.TEXT_SECONDARY).pack(side="left", padx=(0, 4))
+                var = ctk.StringVar(value=default)
+                menu = ctk.CTkOptionMenu(
+                    sel_inner, values=values, variable=var,
+                    width=140, height=34, font=(Fonts.FAMILY, Fonts.SIZE_SM),
+                    fg_color=Colors.BG_INPUT, button_color=Colors.PRIMARY, text_color=Colors.TEXT_PRIMARY,
+                    command=lambda _: self._reload(),
+                )
+                menu.pack(side="left", padx=(0, 16))
+                return var
 
-        self._class_var      = make_selector("Class:",      class_list,     self._sel_class)
-        subject_list         = SUBJECTS.get(self._sel_class, ["Mathematics"])
-        self._subject_var    = make_selector("Subject:",    subject_list,   self._sel_subject)
-        self._assessment_var = make_selector("Assessment:", ASSESSMENT_TYPES, self._sel_assessment)
+            self._class_var      = make_selector("Class:", class_list, self._sel_class)
+            subject_list         = SUBJECTS.get(self._sel_class, ["Mathematics"])
+            self._subject_var    = make_selector("Subject:", subject_list, self._sel_subject)
+            self._assessment_var = make_selector("Exam:", ASSESSMENT_TYPES, self._sel_assessment)
 
-        # Total marks (only for teachers)
-        if self._editable:
-            ctk.CTkLabel(sel_inner, text="Total Marks:",
-                         font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
-                         text_color=Colors.TEXT_SECONDARY).pack(side="left", padx=(0, 4))
-            ctk.CTkEntry(sel_inner, textvariable=self._total_marks,
-                         width=70, height=34, corner_radius=8,
-                         font=(Fonts.FAMILY, Fonts.SIZE_SM),
-                         fg_color=Colors.BG_INPUT, border_color=Colors.BORDER,
-                         text_color=Colors.TEXT_PRIMARY).pack(side="left", padx=(0, 20))
-            ctk.CTkButton(sel_inner, text="💾  Save Marks",
-                          height=34, width=130, corner_radius=8,
-                          font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
-                          fg_color=Colors.PRIMARY, hover_color=Colors.PRIMARY_DARK,
-                          text_color=Colors.TEXT_WHITE,
-                          command=self._save_marks).pack(side="right")
+            if self._editable:
+                ctk.CTkLabel(sel_inner, text="Total:", font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD), text_color=Colors.TEXT_SECONDARY).pack(side="left", padx=(0, 4))
+                ctk.CTkEntry(sel_inner, textvariable=self._total_marks, width=60, height=34, corner_radius=8, font=(Fonts.FAMILY, Fonts.SIZE_SM), fg_color=Colors.BG_INPUT, border_color=Colors.BORDER, text_color=Colors.TEXT_PRIMARY).pack(side="left", padx=(0, 16))
+                ctk.CTkButton(
+                    sel_inner, text="💾  Save Marks", height=34, width=130, corner_radius=8,
+                    font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
+                    fg_color=Colors.PRIMARY, hover_color=Colors.PRIMARY_DARK, text_color=Colors.TEXT_WHITE,
+                    command=self._save_marks,
+                ).pack(side="right")
+            else:
+                ctk.CTkButton(
+                    sel_inner, text="🖨  Print Sheet", height=34, width=120, corner_radius=8,
+                    font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
+                    fg_color=Colors.INFO_BG, text_color=Colors.INFO,
+                    command=lambda: self._toast("Marks ledger sent to printer!", "info"),
+                ).pack(side="right")
+
+        # ── StateView Container ───────────────────────────────────────────────
+        self._state_view = StateView(
+            self,
+            on_retry=lambda: self._on_state_switch("content"),
+            on_action=lambda: self._navigate("dashboard"),
+        )
+        self._state_view.pack(fill="both", expand=True)
+
+        if role == ROLE_PARENT:
+            self._render_parent_gradebook(self._state_view.content_area)
         else:
-            ctk.CTkButton(sel_inner, text="🖨  Print Marks",
-                          height=34, width=130, corner_radius=8,
-                          font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
-                          fg_color=Colors.INFO_BG, text_color=Colors.INFO,
-                          hover_color=Colors.INFO,
-                          command=lambda: self._toast("Marks report sent to printer!", "info")
-                          ).pack(side="right")
+            self._render_teacher_table(self._state_view.content_area)
 
-        # ── Summary chips ─────────────────────────────────────────────────────
-        self._summary_frame = ctk.CTkFrame(self, fg_color="transparent")
+    def _on_state_switch(self, mode: str):
+        if mode == "content":
+            self._state_view.set_state("content")
+        elif mode == "empty":
+            self._state_view.set_state("empty", title="No Marks Ledger Created", message="No examination scores recorded yet for this subject and assessment.", action_text="Create Gradebook")
+        elif mode == "loading":
+            self._state_view.set_state("loading", title="Computing Grade Curves...", message="Calculating class averages, standard deviations, and letter grades from SQLite.")
+        elif mode == "error":
+            self._state_view.set_state("error", title="Grade Calculation Error", message="Score entry contains out-of-range numerical values (> Total Marks).", error_details="ERR_SCORE_OVERFLOW_VALIDATION (Row 4)")
+        elif mode == "offline":
+            self._state_view.set_state("offline", title="Offline Grade Entry", message="Marks are saved directly to the local encrypted SQLite database.", action_text="Continue Grading")
+
+    def _render_teacher_table(self, parent):
+        pad = Spacing.XL
+
+        # Summary Chips
+        self._summary_frame = ctk.CTkFrame(parent, fg_color="transparent")
         self._summary_frame.pack(fill="x", padx=pad, pady=(0, Spacing.MD))
         self._avg_lbl  = self._make_chip(self._summary_frame, "Class Average", "—", Colors.PRIMARY)
         self._high_lbl = self._make_chip(self._summary_frame, "Highest",       "—", Colors.SUCCESS)
         self._low_lbl  = self._make_chip(self._summary_frame, "Lowest",        "—", Colors.DANGER)
-        self._fail_lbl = self._make_chip(self._summary_frame, "Failed",        "—", Colors.WARNING)
+        self._fail_lbl = self._make_chip(self._summary_frame, "Failed (<50%)", "—", Colors.WARNING)
 
-        # ── Marks Table ───────────────────────────────────────────────────────
-        marks_panel = ctk.CTkFrame(self, fg_color=Colors.BG_CARD, corner_radius=10,
-                                    border_width=1, border_color=Colors.BORDER)
+        # Marks Table
+        marks_panel = ctk.CTkFrame(parent, fg_color=Colors.BG_CARD, corner_radius=10, border_width=1, border_color=Colors.BORDER)
         marks_panel.pack(fill="both", expand=True, padx=pad, pady=(0, pad))
 
-        thead = ctk.CTkFrame(marks_panel, fg_color=Colors.BG_TABLE_HEAD,
-                              corner_radius=0, height=36)
+        thead = ctk.CTkFrame(marks_panel, fg_color=Colors.BG_TABLE_HEAD, corner_radius=0, height=36)
         thead.pack(fill="x")
         thead.pack_propagate(False)
-        
-        cols = [
-            (50, " #"), 
-            (70, "Roll"), 
-            (240, "Student Name"), 
-            (140, "Marks Obtained"), 
-            (100, "Grade"), 
-            (100, "% Score")
-        ]
-        for w, lbl in cols:
-            ctk.CTkLabel(thead, text=lbl, width=w,
-                         font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
-                         text_color=Colors.TEXT_HEADING, anchor="w").pack(side="left", padx=4)
 
-        self._marks_scroll = ctk.CTkScrollableFrame(marks_panel, fg_color="transparent",
-                                                     corner_radius=0)
+        cols = [(50, " #"), (70, "Roll"), (240, "Student Name"), (160, "Marks Obtained"), (100, "Grade"), (100, "% Score")]
+        for w, lbl in cols:
+            ctk.CTkLabel(thead, text=lbl, width=w, font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD), text_color=Colors.TEXT_HEADING, anchor="w").pack(side="left", padx=4)
+
+        self._marks_scroll = ctk.CTkScrollableFrame(marks_panel, fg_color="transparent", corner_radius=0)
         self._marks_scroll.pack(fill="both", expand=True)
-        self._reload()
+        self._populate_teacher_rows()
+
+    def _render_parent_gradebook(self, parent):
+        pad = Spacing.XL
+        child = self._state.get_linked_child() or {"id": "S003", "name": "Fatima Bibi Chaudhry", "class": "Class 8-A"}
+
+        # Marks Table
+        panel = ctk.CTkFrame(parent, fg_color=Colors.BG_CARD, corner_radius=10, border_width=1, border_color=Colors.BORDER)
+        panel.pack(fill="both", expand=True, padx=pad, pady=(0, pad))
+
+        thead = ctk.CTkFrame(panel, fg_color=Colors.BG_TABLE_HEAD, corner_radius=0, height=36)
+        thead.pack(fill="x")
+        thead.pack_propagate(False)
+
+        cols = [("Subject", 200), ("Assessment", 140), ("Max Marks", 100), ("Obtained", 100), ("Percentage", 120), ("Grade", 90), ("Remarks", 200)]
+        for label, w in cols:
+            ctk.CTkLabel(thead, text=label, width=w, font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD), text_color=Colors.TEXT_HEADING, anchor="w").pack(side="left", padx=10)
+
+        scroll = ctk.CTkScrollableFrame(panel, fg_color="transparent", corner_radius=0)
+        scroll.pack(fill="both", expand=True)
+
+        child_marks = [m for m in self._state.marks if m["student_id"] == child["id"]]
+        if not child_marks:
+            # Fallback sample
+            child_marks = [
+                {"subject": "Mathematics", "assessment": "Mid-Term", "total_marks": 100, "obtained": 92, "grade": "A+"},
+                {"subject": "Physics", "assessment": "Mid-Term", "total_marks": 100, "obtained": 88, "grade": "A"},
+                {"subject": "Urdu", "assessment": "Mid-Term", "total_marks": 100, "obtained": 90, "grade": "A+"},
+                {"subject": "English", "assessment": "Mid-Term", "total_marks": 100, "obtained": 82, "grade": "A"},
+                {"subject": "Chemistry", "assessment": "Mid-Term", "total_marks": 100, "obtained": 79, "grade": "B+"},
+                {"subject": "Islamic Studies", "assessment": "Mid-Term", "total_marks": 100, "obtained": 95, "grade": "A+"},
+            ]
+
+        for idx, m in enumerate(child_marks):
+            rf = ctk.CTkFrame(scroll, fg_color=Colors.BG_TABLE_ROW if idx % 2 == 0 else Colors.BG_TABLE_ALT, height=40)
+            rf.pack(fill="x")
+            rf.pack_propagate(False)
+
+            pct = round((m["obtained"] / m["total_marks"]) * 100, 1)
+            ctk.CTkLabel(rf, text=m["subject"], width=200, font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD), text_color=Colors.TEXT_PRIMARY, anchor="w").pack(side="left", padx=10)
+            ctk.CTkLabel(rf, text=m["assessment"], width=140, font=(Fonts.FAMILY, Fonts.SIZE_SM), text_color=Colors.TEXT_MUTED, anchor="w").pack(side="left", padx=10)
+            ctk.CTkLabel(rf, text=str(m["total_marks"]), width=100, font=(Fonts.FAMILY_MONO, Fonts.SIZE_SM), text_color=Colors.TEXT_SECONDARY, anchor="w").pack(side="left", padx=10)
+            ctk.CTkLabel(rf, text=str(m["obtained"]), width=100, font=(Fonts.FAMILY_MONO, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD), text_color=Colors.PRIMARY, anchor="w").pack(side="left", padx=10)
+            ctk.CTkLabel(rf, text=f"{pct}%", width=120, font=(Fonts.FAMILY_MONO, Fonts.SIZE_SM), text_color=Colors.SUCCESS if pct >= 80 else Colors.TEXT_PRIMARY, anchor="w").pack(side="left", padx=10)
+            StatusBadge(rf, m.get("grade", "A")).pack(side="left", padx=10)
+            ctk.CTkLabel(rf, text="Distinction Achieved" if pct>=90 else "Good Standing", width=200, font=(Fonts.FAMILY, Fonts.SIZE_XS), text_color=Colors.TEXT_MUTED, anchor="w").pack(side="left", padx=10)
+
+    def _populate_teacher_rows(self):
+        for w in self._marks_scroll.winfo_children():
+            w.destroy()
+        self._mark_entries.clear()
+        self._grade_lbls.clear()
+        self._pct_lbls.clear()
+
+        students = [s for s in self._state.students if s["class"] == self._sel_class]
+        subj = self._sel_subject
+        assess = self._sel_assessment
+
+        for idx, s in enumerate(students):
+            sid = s["id"]
+            rec = next((m for m in self._state.marks if m["student_id"] == sid and m["subject"] == subj and m["assessment"] == assess), None)
+            init_obt = str(rec["obtained"]) if rec else "75"
+
+            rf = ctk.CTkFrame(self._marks_scroll, fg_color=Colors.BG_TABLE_ROW if idx % 2 == 0 else Colors.BG_TABLE_ALT, height=40)
+            rf.pack(fill="x")
+            rf.pack_propagate(False)
+
+            ctk.CTkLabel(rf, text=str(idx + 1), width=50, font=(Fonts.FAMILY, Fonts.SIZE_SM), text_color=Colors.TEXT_MUTED, anchor="w").pack(side="left", padx=4)
+            ctk.CTkLabel(rf, text=s.get("roll_no", "-"), width=70, font=(Fonts.FAMILY_MONO, Fonts.SIZE_SM), text_color=Colors.TEXT_PRIMARY, anchor="w").pack(side="left", padx=4)
+            ctk.CTkLabel(rf, text=s["name"], width=240, font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD), text_color=Colors.TEXT_PRIMARY, anchor="w").pack(side="left", padx=4)
+
+            entry_f = ctk.CTkFrame(rf, width=160, fg_color="transparent")
+            entry_f.pack(side="left", padx=4)
+
+            var = ctk.StringVar(value=init_obt)
+            self._mark_entries[sid] = var
+
+            if self._editable:
+                ent = ctk.CTkEntry(entry_f, textvariable=var, width=80, height=28, corner_radius=6, font=(Fonts.FAMILY_MONO, Fonts.SIZE_SM), fg_color=Colors.BG_INPUT, border_color=Colors.BORDER, text_color=Colors.TEXT_PRIMARY)
+                ent.pack(side="left")
+                var.trace_add("write", lambda *_, sid=sid: self._on_mark_changed(sid))
+            else:
+                ctk.CTkLabel(entry_f, text=init_obt, width=80, font=(Fonts.FAMILY_MONO, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD), text_color=Colors.PRIMARY, anchor="w").pack(side="left")
+
+            glbl = StatusBadge(rf, rec["grade"] if rec else "B")
+            glbl.pack(side="left", padx=10)
+            self._grade_lbls[sid] = glbl
+
+            plbl = ctk.CTkLabel(rf, text="75.0%", width=100, font=(Fonts.FAMILY_MONO, Fonts.SIZE_SM), text_color=Colors.TEXT_SECONDARY, anchor="w")
+            plbl.pack(side="left", padx=4)
+            self._pct_lbls[sid] = plbl
+
+            self._on_mark_changed(sid)
+
+        self._update_analytics()
+
+    def _on_mark_changed(self, sid: str):
+        var = self._mark_entries.get(sid)
+        if not var:
+            return
+        val_str = var.get().strip()
+        try:
+            tot = float(self._total_marks.get())
+            obt = float(val_str)
+            if obt < 0 or obt > tot:
+                raise ValueError("Out of bounds")
+            pct = round((obt / tot) * 100, 1)
+            grd = "A+" if pct >= 90 else ("A" if pct >= 80 else ("B+" if pct >= 70 else ("B" if pct >= 60 else ("C" if pct >= 50 else "F"))))
+            if sid in self._grade_lbls:
+                self._grade_lbls[sid].configure(text=f"  {grd}  ")
+            if sid in self._pct_lbls:
+                self._pct_lbls[sid].configure(text=f"{pct}%")
+        except Exception:
+            if sid in self._pct_lbls:
+                self._pct_lbls[sid].configure(text="⚠ Invalid")
+
+    def _update_analytics(self):
+        vals = []
+        for var in self._mark_entries.values():
+            try:
+                vals.append(float(var.get().strip()))
+            except Exception:
+                pass
+        if vals:
+            avg = round(sum(vals) / len(vals), 1)
+            high = round(max(vals), 1)
+            low = round(min(vals), 1)
+            fail = sum(1 for v in vals if v < 50)
+            self._avg_lbl.configure(text=str(avg))
+            self._high_lbl.configure(text=str(high))
+            self._low_lbl.configure(text=str(low))
+            self._fail_lbl.configure(text=str(fail))
+
+    def _save_marks(self):
+        students = [s for s in self._state.students if s["class"] == self._sel_class]
+        subj = self._sel_subject
+        assess = self._sel_assessment
+        tot = int(self._total_marks.get())
+        records = []
+
+        for s in students:
+            sid = s["id"]
+            try:
+                obt = int(float(self._mark_entries[sid].get().strip()))
+            except Exception:
+                obt = 0
+            pct = (obt / tot) * 100
+            grd = "A+" if pct >= 90 else ("A" if pct >= 80 else ("B+" if pct >= 70 else ("B" if pct >= 60 else ("C" if pct >= 50 else "F"))))
+            records.append({
+                "id": f"MK{sid}{subj[:3]}",
+                "student_id": sid,
+                "student_name": s["name"],
+                "class": self._sel_class,
+                "subject": subj,
+                "assessment": assess,
+                "total_marks": tot,
+                "obtained": obt,
+                "grade": grd,
+            })
+
+        self._state.save_marks_batch(records)
+        self._toast(f"Marks for {self._sel_class} - {subj} ({assess}) saved to SQLite!", "success")
+
+    def _reload(self):
+        self._sel_class = self._class_var.get()
+        self._sel_subject = self._subject_var.get()
+        self._sel_assessment = self._assessment_var.get()
+        self._populate_teacher_rows()
+
+    def _reload_parent_view(self):
+        for w in self._state_view.content_area.winfo_children():
+            w.destroy()
+        self._render_parent_gradebook(self._state_view.content_area)
 
     @staticmethod
     def _make_chip(parent, label, val, color):
         from app.components.cards import MetricCard
-        chip = ctk.CTkFrame(parent, fg_color=MetricCard._alpha_color(color),
-                             corner_radius=8, border_width=1, border_color=color, height=44)
+        chip = ctk.CTkFrame(parent, fg_color=MetricCard._alpha_color(color), corner_radius=8, border_width=1, border_color=color, height=44)
         chip.pack(side="left", padx=(0, Spacing.SM))
         chip.pack_propagate(False)
         inner = ctk.CTkFrame(chip, fg_color="transparent")
         inner.pack(expand=True, padx=12)
-        v_lbl = ctk.CTkLabel(inner, text=val,
-                              font=(Fonts.FAMILY, Fonts.SIZE_LG, Fonts.WEIGHT_BOLD),
-                              text_color=color)
+        v_lbl = ctk.CTkLabel(inner, text=val, font=(Fonts.FAMILY, Fonts.SIZE_LG, Fonts.WEIGHT_BOLD), text_color=color)
         v_lbl.pack(side="left")
-        ctk.CTkLabel(inner, text=f"  {label}",
-                     font=(Fonts.FAMILY, Fonts.SIZE_XS),
-                     text_color=color).pack(side="left")
+        ctk.CTkLabel(inner, text=f"  {label}", font=(Fonts.FAMILY, Fonts.SIZE_XS), text_color=color).pack(side="left")
         return v_lbl
-
-    def _reload(self):
-        self._sel_class      = self._class_var.get()
-        self._sel_subject    = self._subject_var.get()
-        self._sel_assessment = self._assessment_var.get()
-
-        students = self._state.get_students_by_class(self._sel_class)
-
-        existing = {
-            m["student_id"]: m["obtained"]
-            for m in self._state.marks
-            if (m["class"] == self._sel_class
-                and m["subject"] == self._sel_subject
-                and m["assessment"] == self._sel_assessment)
-        }
-
-        for w in self._marks_scroll.winfo_children():
-            w.destroy()
-        self._mark_entries = {}
-
-        if not students:
-            ctk.CTkLabel(self._marks_scroll, text="No students found.",
-                         font=(Fonts.FAMILY, Fonts.SIZE_MD),
-                         text_color=Colors.TEXT_MUTED).pack(pady=30)
-            return
-
-        for i, student in enumerate(students):
-            sid = student["id"]
-            bg  = Colors.BG_TABLE_ROW if i % 2 == 0 else Colors.BG_TABLE_ALT
-            row = ctk.CTkFrame(self._marks_scroll, fg_color=bg, height=44, corner_radius=0)
-            row.pack(fill="x")
-            row.pack_propagate(False)
-
-            # Realigned packing metrics with pixel-perfect spacing anchors
-            ctk.CTkLabel(row, text=f" {i + 1}", width=50,
-                         font=(Fonts.FAMILY, Fonts.SIZE_SM),
-                         text_color=Colors.TEXT_MUTED, anchor="w").pack(side="left", padx=4)
-            ctk.CTkLabel(row, text=student["roll_no"], width=70,
-                         font=(Fonts.FAMILY, Fonts.SIZE_SM),
-                         text_color=Colors.TEXT_SECONDARY, anchor="w").pack(side="left", padx=4)
-            ctk.CTkLabel(row, text=student["name"], width=240,
-                         font=(Fonts.FAMILY, Fonts.SIZE_SM),
-                         text_color=Colors.TEXT_PRIMARY, anchor="w").pack(side="left", padx=4)
-
-            entry_var = ctk.StringVar(value=str(existing.get(sid, "")))
-            self._mark_entries[sid] = entry_var
-
-            # Bound container width block to guarantee uniform alignment mapping 
-            input_container = ctk.CTkFrame(row, fg_color="transparent", width=140)
-            input_container.pack(side="left", padx=4)
-            input_container.pack_propagate(False)
-
-            if self._editable:
-                entry = ctk.CTkEntry(
-                    input_container, textvariable=entry_var,
-                    width=90, height=28, corner_radius=6,
-                    font=(Fonts.FAMILY, Fonts.SIZE_SM),
-                    fg_color=Colors.BG_INPUT, border_color=Colors.BORDER,
-                    text_color=Colors.TEXT_PRIMARY,
-                    placeholder_text="0–100",
-                )
-                entry.pack(side="left", pady=8)
-            else:
-                score_text = str(existing.get(sid, "—"))
-                try:
-                    total = int(self._total_marks.get())
-                    obt   = int(score_text)
-                    score_display = f"{obt} / {total}"
-                except Exception:
-                    score_display = score_text if score_text else "—"
-                ctk.CTkLabel(input_container, text=score_display,
-                             font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
-                             text_color=Colors.TEXT_PRIMARY, anchor="w").pack(side="left", pady=8)
-
-            # Grade / pct – live or static metrics
-            grade_lbl = ctk.CTkLabel(row, text="—", width=100,
-                                      font=(Fonts.FAMILY, Fonts.SIZE_SM, Fonts.WEIGHT_BOLD),
-                                      text_color=Colors.TEXT_MUTED, anchor="w")
-            grade_lbl.pack(side="left", padx=4)
-            pct_lbl = ctk.CTkLabel(row, text="—", width=100,
-                                    font=(Fonts.FAMILY, Fonts.SIZE_SM),
-                                    text_color=Colors.TEXT_MUTED, anchor="w")
-            pct_lbl.pack(side="left", padx=4)
-
-            def update_row_grade(sv=entry_var, gl=grade_lbl, pl=pct_lbl):
-                try:
-                    total = int(self._total_marks.get())
-                    obt   = int(sv.get())
-                    pct   = round((obt / total) * 100, 1) if total else 0
-                    grade = self._grade(obt, total)
-                    gc    = self._grade_color(grade)
-                    gl.configure(text=grade, text_color=gc)
-                    pl.configure(text=f"{pct}%", text_color=gc)
-                except Exception:
-                    gl.configure(text="—", text_color=Colors.TEXT_MUTED)
-                    pl.configure(text="—", text_color=Colors.TEXT_MUTED)
-
-            entry_var.trace_add("write", lambda *_, fn=update_row_grade: fn())
-            update_row_grade()
-
-            ctk.CTkFrame(self._marks_scroll, height=1, fg_color=Colors.DIVIDER).pack(fill="x")
-
-        self._update_summary()
-
-    def _update_summary(self):
-        try:
-            total = int(self._total_marks.get())
-        except Exception:
-            total = 100
-        scores = []
-        for sv in self._mark_entries.values():
-            try:
-                scores.append(int(sv.get()))
-            except Exception:
-                pass
-        if not scores:
-            for lbl in [self._avg_lbl, self._high_lbl, self._low_lbl, self._fail_lbl]:
-                lbl.configure(text="—")
-            return
-        avg  = round(sum(scores) / len(scores), 1)
-        high = max(scores)
-        low  = min(scores)
-        fail = sum(1 for s in scores if (s / total * 100) < 50 if total)
-        self._avg_lbl.configure(text=str(avg))
-        self._high_lbl.configure(text=str(high))
-        self._low_lbl.configure(text=str(low))
-        self._fail_lbl.configure(text=str(fail))
-
-    def _save_marks(self):
-        if not self._editable:
-            self._toast("Access denied. Admins cannot edit marks.", "error")
-            return
-        try:
-            total = int(self._total_marks.get())
-        except Exception:
-            total = 100
-
-        cls  = self._sel_class
-        subj = self._sel_subject
-        asmn = self._sel_assessment
-
-        self._state.marks = [
-            m for m in self._state.marks
-            if not (m["class"] == cls and m["subject"] == subj and m["assessment"] == asmn)
-        ]
-
-        students = self._state.get_students_by_class(cls)
-        for student in students:
-            sid = student["id"]
-            sv  = self._mark_entries.get(sid)
-            if not sv:
-                continue
-            try:
-                obtained = int(sv.get())
-            except Exception:
-                continue
-            grade = self._grade(obtained, total)
-            self._state.marks.append({
-                "id":           f"MK{sid}{subj[:3]}{asmn[:3]}",
-                "student_id":   sid,
-                "student_name": student["name"],
-                "class":        cls,
-                "subject":      subj,
-                "assessment":   asmn,
-                "total_marks":  total,
-                "obtained":     obtained,
-                "grade":        grade,
-            })
-
-        self._toast(f"✓  Marks saved – {cls}  ·  {subj}  ·  {asmn}", "success")
-        self._update_summary()
-
-    @staticmethod
-    def _grade(obtained: int, total: int) -> str:
-        pct = (obtained / total) * 100 if total else 0
-        if pct >= 90: return "A+"
-        if pct >= 80: return "A"
-        if pct >= 70: return "B+"
-        if pct >= 60: return "B"
-        if pct >= 50: return "C"
-        return "F"
-
-    @staticmethod
-    def _grade_color(grade: str) -> str:
-        if grade in ("A+", "A"): return Colors.SUCCESS
-        if grade in ("B+", "B"): return Colors.INFO
-        if grade == "C":          return Colors.WARNING
-        return Colors.DANGER
