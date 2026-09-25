@@ -9,9 +9,24 @@ import os
 # ─── Application Meta ────────────────────────────────────────────────────────
 APP_NAME        = "EduTrack"
 SCHOOL_NAME     = "Dar-e-Arqam School"
-APP_VERSION     = "2.2.0 (AHCI Phase 1 Edition)"
+APP_VERSION     = "2.2.0 (Standalone Desktop Edition)"
 WINDOW_SIZE     = "1400x840"
-WINDOW_MIN_SIZE = (1200, 720)
+WINDOW_MIN_SIZE = (1024, 680)
+
+# ─── Asset Paths ─────────────────────────────────────────────────────────────
+BASE_DIR      = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ASSETS_DIR    = os.path.join(BASE_DIR, "assets")
+ICON_ICO_PATH = os.path.join(ASSETS_DIR, "icon.ico")
+ICON_PNG_PATH = os.path.join(ASSETS_DIR, "icon.png")
+
+# ─── Demo Mode & Security Flags ───────────────────────────────────────────────
+# Toggle DEMO_MODE to False for production deployment without demo fixtures or quick-login
+DEMO_MODE = True
+
+if DEMO_MODE:
+    from app.data.demo_fixtures import DEMO_USERS
+else:
+    DEMO_USERS = {}
 
 # ─── Roles ───────────────────────────────────────────────────────────────────
 ROLE_ADMIN   = "Administrator"
@@ -186,39 +201,4 @@ NAV_ITEMS = {
         {"key": "profile",          "label": "Guardian Profile",   "icon": "👤"},
         {"key": "help",             "label": "School Helpdesk",    "icon": "❓"},
     ],
-}
-
-# ─── Default Demo Credentials ─────────────────────────────────────────────────
-DEMO_USERS = {
-    ROLE_ADMIN: {
-        "username":    "admin",
-        "password":    "admin123",
-        "full_name":   "Muhammad Arif Khan",
-        "designation": "System Administrator",
-        "student_id":  None,
-        "class":       None,
-        "email":       "admin@darearqam.edu.pk",
-        "phone":       "0300-1122334",
-    },
-    ROLE_TEACHER: {
-        "username":    "teacher",
-        "password":    "teacher123",
-        "full_name":   "Ustaz Bilal Ahmed",
-        "designation": "Class Teacher – Class 6-A",
-        "student_id":  None,
-        "class":       "Class 6-A",
-        "email":       "bilal@darearqam.edu.pk",
-        "phone":       "0321-1234567",
-    },
-    ROLE_PARENT: {
-        "username":    "parent",
-        "password":    "parent123",
-        "full_name":   "Rao Chaudhry",
-        "designation": "Parent / Guardian",
-        "student_id":  "S003",
-        "class":       "Class 8-A",
-        "child_name":  "Fatima Bibi Chaudhry",
-        "email":       "rao.chaudhry@gmail.com",
-        "phone":       "0312-3333333",
-    },
 }

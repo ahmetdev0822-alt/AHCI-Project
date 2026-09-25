@@ -219,9 +219,10 @@ class ProfileScreen(ctk.CTkFrame):
         if new_p != conf:
             self._toast("Validation Error: New passwords do not match.", "error")
             return
-        if len(new_p) < 6:
-            self._toast("Validation Error: Password must be at least 6 characters.", "warning")
-            return
+        username = self._user.get("username", "")
+        if username:
+            db.update_user_password(username, new_p)
+            db.log_activity(username, "Password Changed", "User updated account password")
 
         self._curr_pass.delete(0, "end")
         self._new_pass.delete(0, "end")

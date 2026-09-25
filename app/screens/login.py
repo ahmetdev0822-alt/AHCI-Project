@@ -1,14 +1,15 @@
 """
 app/screens/login.py
 Premium Blue & White Login Screen – EduTrack / Dar-e-Arqam School.
-Supports Administrator, Teacher, and Parent demo roles with 1-click quick-login buttons.
+Supports Administrator, Teacher, and Parent roles with optional 1-click quick-login demo mode.
 """
 
 import customtkinter as ctk
 from app.config import (
-    Colors, Fonts, Spacing, ROLES, DEMO_USERS,
+    Colors, Fonts, Spacing, ROLES, DEMO_USERS, DEMO_MODE,
     APP_NAME, SCHOOL_NAME, ROLE_ADMIN, ROLE_TEACHER, ROLE_PARENT,
 )
+from app.db.database import db
 
 
 class LoginScreen(ctk.CTkFrame):
@@ -98,7 +99,7 @@ class LoginScreen(ctk.CTkFrame):
         # Bottom tagline
         ctk.CTkLabel(
             left,
-            text="Powered by EduTrack v2.2 (AHCI Phase 1 Edition)  ·  © 2026 Dar-e-Arqam School",
+            text="Powered by EduTrack v2.2 (Standalone Edition)  ·  © 2026 Dar-e-Arqam School",
             font=(Fonts.FAMILY, Fonts.SIZE_XS),
             text_color="#64B5F6",
         ).place(relx=0.5, rely=0.96, anchor="center")
@@ -131,8 +132,10 @@ class LoginScreen(ctk.CTkFrame):
             text_color=Colors.TEXT_HEADING,
             anchor="w",
         ).pack(anchor="w")
+
+        subtitle_text = "Sign in or use 1-click demo access below" if DEMO_MODE else "Sign in with your institutional credentials"
         ctk.CTkLabel(
-            inner, text="Sign in or use 1-click demo access below",
+            inner, text=subtitle_text,
             font=(Fonts.FAMILY, Fonts.SIZE_SM),
             text_color=Colors.TEXT_MUTED,
             anchor="w",
@@ -200,49 +203,50 @@ class LoginScreen(ctk.CTkFrame):
             command=self._attempt_login,
         ).pack(fill="x", pady=(8, 12))
 
-        # ── Quick 1-Click Demo Buttons ────────────────────────────────────────
-        demo_title = ctk.CTkLabel(
-            inner, text="⚡  1-Click Instant Demo Portals:",
-            font=(Fonts.FAMILY, Fonts.SIZE_XS, Fonts.WEIGHT_BOLD),
-            text_color=Colors.TEXT_SECONDARY,
-            anchor="w",
-        )
-        demo_title.pack(anchor="w", pady=(4, 6))
+        # ── Quick 1-Click Demo Buttons (Only if DEMO_MODE enabled) ────────────
+        if DEMO_MODE:
+            demo_title = ctk.CTkLabel(
+                inner, text="⚡  1-Click Instant Demo Portals:",
+                font=(Fonts.FAMILY, Fonts.SIZE_XS, Fonts.WEIGHT_BOLD),
+                text_color=Colors.TEXT_SECONDARY,
+                anchor="w",
+            )
+            demo_title.pack(anchor="w", pady=(4, 6))
 
-        btn_row = ctk.CTkFrame(inner, fg_color="transparent")
-        btn_row.pack(fill="x")
+            btn_row = ctk.CTkFrame(inner, fg_color="transparent")
+            btn_row.pack(fill="x")
 
-        # Admin Demo
-        ctk.CTkButton(
-            btn_row, text="🛡 Admin Portal",
-            height=32, corner_radius=6,
-            font=(Fonts.FAMILY, Fonts.SIZE_XS, Fonts.WEIGHT_BOLD),
-            fg_color=Colors.PRIMARY_LIGHT, text_color=Colors.PRIMARY,
-            hover_color=Colors.PRIMARY,
-            command=lambda: self._quick_login(ROLE_ADMIN),
-        ).pack(side="left", fill="x", expand=True, padx=(0, 4))
+            # Admin Demo
+            ctk.CTkButton(
+                btn_row, text="🛡 Admin Portal",
+                height=32, corner_radius=6,
+                font=(Fonts.FAMILY, Fonts.SIZE_XS, Fonts.WEIGHT_BOLD),
+                fg_color=Colors.PRIMARY_LIGHT, text_color=Colors.PRIMARY,
+                hover_color=Colors.PRIMARY,
+                command=lambda: self._quick_login(ROLE_ADMIN),
+            ).pack(side="left", fill="x", expand=True, padx=(0, 4))
 
-        # Teacher Demo
-        ctk.CTkButton(
-            btn_row, text="📚 Teacher Portal",
-            height=32, corner_radius=6,
-            font=(Fonts.FAMILY, Fonts.SIZE_XS, Fonts.WEIGHT_BOLD),
-            fg_color="#E0F2F1", text_color=Colors.ACCENT,
-            hover_color=Colors.ACCENT,
-            command=lambda: self._quick_login(ROLE_TEACHER),
-        ).pack(side="left", fill="x", expand=True, padx=4)
+            # Teacher Demo
+            ctk.CTkButton(
+                btn_row, text="📚 Teacher Portal",
+                height=32, corner_radius=6,
+                font=(Fonts.FAMILY, Fonts.SIZE_XS, Fonts.WEIGHT_BOLD),
+                fg_color="#E0F2F1", text_color=Colors.ACCENT,
+                hover_color=Colors.ACCENT,
+                command=lambda: self._quick_login(ROLE_TEACHER),
+            ).pack(side="left", fill="x", expand=True, padx=4)
 
-        # Parent Demo
-        ctk.CTkButton(
-            btn_row, text="👨‍👩‍👧 Parent Portal",
-            height=32, corner_radius=6,
-            font=(Fonts.FAMILY, Fonts.SIZE_XS, Fonts.WEIGHT_BOLD),
-            fg_color=Colors.PARENT_BG, text_color=Colors.PARENT_ACCENT,
-            hover_color=Colors.PARENT_ACCENT,
-            command=lambda: self._quick_login(ROLE_PARENT),
-        ).pack(side="left", fill="x", expand=True, padx=(4, 0))
+            # Parent Demo
+            ctk.CTkButton(
+                btn_row, text="👨‍👩‍👧 Parent Portal",
+                height=32, corner_radius=6,
+                font=(Fonts.FAMILY, Fonts.SIZE_XS, Fonts.WEIGHT_BOLD),
+                fg_color=Colors.PARENT_BG, text_color=Colors.PARENT_ACCENT,
+                hover_color=Colors.PARENT_ACCENT,
+                command=lambda: self._quick_login(ROLE_PARENT),
+            ).pack(side="left", fill="x", expand=True, padx=(4, 0))
 
-        # Pre-fill based on current role selection
+        # Pre-fill initial state
         self._prefill()
 
     def _make_label(self, parent, text: str):
@@ -279,16 +283,19 @@ class LoginScreen(ctk.CTkFrame):
 
     def _prefill(self):
         role = self._role_var.get()
-        user = DEMO_USERS.get(role, {})
         self._username_entry.delete(0, "end")
         self._password_entry.delete(0, "end")
-        self._username_entry.insert(0, user.get("username", ""))
-        self._password_entry.insert(0, user.get("password", ""))
+        if DEMO_MODE:
+            user = DEMO_USERS.get(role, {})
+            self._username_entry.insert(0, user.get("username", ""))
+            self._password_entry.insert(0, user.get("password", ""))
         self._show_pass_var.set(False)
         self._password_entry.configure(show="●")
         self._error_var.set("")
 
     def _quick_login(self, role: str):
+        if not DEMO_MODE:
+            return
         self._role_var.set(role)
         self._prefill()
         self._attempt_login()
@@ -302,9 +309,21 @@ class LoginScreen(ctk.CTkFrame):
             self._error_var.set("⚠  Please enter both username and password.")
             return
 
-        expected = DEMO_USERS.get(role, {})
-        if username == expected.get("username") and password == expected.get("password"):
+        # 1. Try authenticating via SQLite database
+        db_user = db.authenticate_user(username, password)
+        if db_user:
+            # If authenticated user has matching role or allows role override in demo
+            user_role = db_user.get("role", role)
             self._error_var.set("")
-            self._on_success(role, expected)
-        else:
-            self._error_var.set("✕  Invalid credentials for selected role.")
+            self._on_success(user_role, db_user)
+            return
+
+        # 2. Fallback to DEMO_USERS if DEMO_MODE is active
+        if DEMO_MODE:
+            expected = DEMO_USERS.get(role, {})
+            if username == expected.get("username") and password == expected.get("password"):
+                self._error_var.set("")
+                self._on_success(role, expected)
+                return
+
+        self._error_var.set("✕  Invalid credentials for selected role.")

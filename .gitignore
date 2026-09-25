@@ -2,15 +2,33 @@
 __pycache__/
 *.py[cod]
 *$py.class
-*.db
+*.so
 
-# Environments
+# SQLite and application runtime data
+*.db
+*.db-wal
+*.db-shm
+*.log
+backups/
+logs/
+
+# PyInstaller build and distribution outputs
+build/
+dist/
+*.spec.bak
+
+# Virtual environments
 .venv/
 conda_env/
 venv/
 ENV/
 env/
 
-# IDEs and editors
+# IDEs, testing & tooling
 .vscode/
 .idea/
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+.DS_Store

@@ -258,9 +258,13 @@ class TeacherForm(ctk.CTkToplevel):
         name = self._name.get().strip()
         subj = self._subject.get().strip()
         if not name or not subj:
+            if hasattr(self._master, "_toast"):
+                self._master._toast("Validation Error: Full Name and Subject Specialization are required.", "error")
             return
         try:
             exp = int(self._exp.get().strip())
+            if exp < 0:
+                exp = 0
         except ValueError:
             exp = 0
         data = {

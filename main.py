@@ -20,7 +20,7 @@ if os.path.exists(_tk_lib_dir):
 import customtkinter as ctk
 from app.config import (
     APP_NAME, SCHOOL_NAME, WINDOW_SIZE, WINDOW_MIN_SIZE,
-    Colors, Fonts, NAV_ITEMS, DEMO_USERS,
+    Colors, Fonts, NAV_ITEMS, DEMO_USERS, ICON_ICO_PATH, ICON_PNG_PATH,
     ROLE_ADMIN, ROLE_TEACHER, ROLE_PARENT,
 )
 from app.state import AppState
@@ -98,6 +98,17 @@ class EduTrackApp(ctk.CTk):
         # Set appearance
         ctk.set_appearance_mode("light")
         ctk.set_default_color_theme("green")
+
+        # ── Window Icon ───────────────────────────────────────────────────────
+        try:
+            if os.path.exists(ICON_PNG_PATH):
+                from PIL import ImageTk
+                self._app_icon_img = ImageTk.PhotoImage(file=ICON_PNG_PATH)
+                self.wm_iconphoto(True, self._app_icon_img)
+            elif os.path.exists(ICON_ICO_PATH) and sys.platform.startswith("win"):
+                self.iconbitmap(ICON_ICO_PATH)
+        except Exception:
+            pass
 
         # ── Show login ────────────────────────────────────────────────────────
         self._show_login()

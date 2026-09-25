@@ -301,18 +301,35 @@ class MarksScreen(ctk.CTkFrame):
 
     def _save_marks(self):
         students = [s for s in self._state.students if s["class"] == self._sel_class]
+        if not students:
+            self._toast("No students found in selected class.", "warning")
+            return
+
         subj = self._sel_subject
         assess = self._sel_assessment
-        tot = int(self._total_marks.get())
+        try:
+            tot = int(float(self._total_marks.get().strip()))
+            if tot <= 0:
+                raise ValueError("Total marks must be > 0")
+        except Exception:
+            self._toast("Validation Error: Total marks must be a positive number.", "error")
+            return
+
         records = []
+        invalid_entries = []
 
         for s in students:
             sid = s["id"]
+            raw_val = self._mark_entries.get(sid, ctk.StringVar(value="0")).get().strip()
             try:
-                obt = int(float(self._mark_entries[sid].get().strip()))
+                obt = int(float(raw_val))
+                if obt < 0 or obt > tot:
+                    invalid_entries.append(f"{s['name']} ({obt}/{tot})")
             except Exception:
+                invalid_entries.append(f"{s['name']} (invalid score)")
                 obt = 0
-            pct = (obt / tot) * 100
+
+            pct = (obt / tot) * 100 if tot > 0 else 0
             grd = "A+" if pct >= 90 else ("A" if pct >= 80 else ("B+" if pct >= 70 else ("B" if pct >= 60 else ("C" if pct >= 50 else "F"))))
             records.append({
                 "id": f"MK{sid}{subj[:3]}",
@@ -326,8 +343,15 @@ class MarksScreen(ctk.CTkFrame):
                 "grade": grd,
             })
 
-        self._state.save_marks_batch(records)
-        self._toast(f"Marks for {self._sel_class} - {subj} ({assess}) saved to SQLite!", "success")
+        if invalid_entries:
+            self._toast(f"Validation Error: Score out of bounds for {invalid_entries[0]}.", "error")
+            return
+
+        ok = self._state.save_marks_batch(records)
+        if ok:
+            self._toast(f"Marks for {self._sel_class} - {subj} ({assess}) saved to SQLite!", "success")
+        else:
+            self._toast("Failed to save marks to database.", "error")
 
     def _reload(self):
         self._sel_class = self._class_var.get()

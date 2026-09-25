@@ -204,6 +204,7 @@ class ClassesScreen(ctk.CTkFrame):
         def save():
             cname = name_e.get().strip()
             if not cname:
+                self._toast("Validation Error: Class section name is required.", "error")
                 return
             new_c = {
                 "id": f"CL{len(self._state.classes)+1:02d}",

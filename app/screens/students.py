@@ -286,6 +286,8 @@ class StudentForm(ctk.CTkToplevel):
         name = self._name.get().strip()
         pname = self._parent.get().strip()
         if not name or not pname:
+            if hasattr(self._master, "_toast"):
+                self._master._toast("Validation Error: Please fill in both Student Name and Parent/Guardian.", "error")
             return
         data = {
             "id":             self._data["id"] if self._data else "",
